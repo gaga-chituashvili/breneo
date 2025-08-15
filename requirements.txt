@@ -1,0 +1,12 @@
+asgiref==3.9.1
+Django==5.2.5
+sqlparse==0.5.3
+Django==5.2.5
+djangorestframework
+djangorestframework-simplejwt
+openai
+gunicorn
+django-cors-headers
+python-dotenv
+requests
+python-dotenv
