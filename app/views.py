@@ -1,14 +1,13 @@
 from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
-from rest_framework import status
 from .models import Assessment, Badge, Question, AssessmentSession
 from .serializers import AssessmentSerializer, BadgeSerializer, QuestionSerializer
 from django.contrib.auth.models import User
-import os, requests
+from django.utils import timezone
+import os, requests, re
 
-# Home page
+# ---------------- Home ----------------
 def home(request):
     return HttpResponse("Welcome to Breneo Student Dashboard!")
 
@@ -18,9 +17,9 @@ class DashboardProgressAPI(APIView):
     permission_classes = []
 
     def get(self, request):
-        user = request.user
-        if not user or not user.is_authenticated:
-            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+        user = User.objects.first()  # demo
+        if not user:
+            return Response({"error": "No demo user"}, status=404)
 
         assessments = Assessment.objects.filter(user=user)
         badges = Badge.objects.filter(user=user)
@@ -44,86 +43,39 @@ class QuestionsAPI(APIView):
         serializer = QuestionSerializer(questions, many=True)
         return Response(serializer.data)
 
-# ---------------- Start/Continue Assessment ----------------
-class StartAssessmentAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
-
-    def post(self, request):
-        user = request.user
-        if not user or not user.is_authenticated:
-            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
-
-        session = AssessmentSession.objects.filter(user=user, completed=False).first()
-        if not session:
-            first_question = Question.objects.first()
-            if not first_question:
-                return Response({"error": "No questions available"}, status=status.HTTP_404_NOT_FOUND)
-            session = AssessmentSession.objects.create(user=user, current_question=first_question)
-
-        serializer = QuestionSerializer(session.current_question)
-        return Response({
-            "message": "Assessment session started" if not session.completed else "Continuing assessment",
-            "session_id": session.id,
-            "current_question": serializer.data
-        })
-
-# ---------------- Skill Path API ----------------
-class SkillPathAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
-
-    def get(self, request):
-        user = request.user
-        if not user or not user.is_authenticated:
-            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
-
-        assessments = Assessment.objects.filter(user=user)
-        skill_path = [{"name": a.name, "status": a.status, "completed_at": a.completed_at} for a in assessments]
-
-        return Response({"skill_path": skill_path})
-
-# ---------------- Recommended Jobs API ----------------
+# ---------------- Recommended Jobs ----------------
 class RecommendedJobsAPI(APIView):
     authentication_classes = []
     permission_classes = []
 
     def get(self, request):
-        user = request.user
-        if not user or not user.is_authenticated:
-            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
-
         jobs = [
             {"title": "Python Developer", "match": "85%", "skills": ["Python", "Django"]},
             {"title": "Data Analyst", "match": "75%", "skills": ["SQL", "Python"]},
         ]
         return Response({"recommended_jobs": jobs})
 
-# ---------------- Recommended Courses API ----------------
+# ---------------- Recommended Courses ----------------
 class RecommendedCoursesAPI(APIView):
     authentication_classes = []
     permission_classes = []
 
     def get(self, request):
-        user = request.user
-        if not user or not user.is_authenticated:
-            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
-
         courses = [
             {"title": "Advanced Python", "difficulty": "Intermediate", "duration": "4 weeks"},
             {"title": "Django for Beginners", "difficulty": "Easy", "duration": "6 weeks"},
         ]
         return Response({"recommended_courses": courses})
 
-# ---------------- Progress Metrics API ----------------
+# ---------------- Progress Metrics ----------------
 class ProgressMetricsAPI(APIView):
     authentication_classes = []
     permission_classes = []
 
     def get(self, request):
-        user = request.user
-        if not user or not user.is_authenticated:
-            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+        user = User.objects.first()
+        if not user:
+            return Response({"error": "No demo user"}, status=404)
 
         assessments = Assessment.objects.filter(user=user)
         badges = Badge.objects.filter(user=user)
@@ -135,20 +87,103 @@ class ProgressMetricsAPI(APIView):
             "total_badges": badges.count()
         })
 
-# ---------------- Proxy API (optional) ----------------
+# ---------------- AI Question Generation ----------------
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-@api_view(['GET'])
-def proxy_dashboard(request):
-    if not GROQ_API_KEY:
-        return Response({"error": "GROQ_API_KEY not set"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+def generate_ai_question(domain="Python", difficulty="Easy"):
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {GROQ_API_KEY}"
+    }
+    data = {
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    f"Generate a {difficulty} multiple choice question about {domain}. "
+                    "Return in format: Question text\\nOption1\\nOption2\\nOption3\\nOption4\\nCorrect option number (1-4)"
+                )
+            }
+        ],
+        "max_tokens": 300
+    }
 
-    api_url = "https://api.yourservice.com/dashboard/" 
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+    resp = requests.post(url, headers=headers, json=data)
+    if resp.status_code != 200:
+        return None
 
-    try:
-        r = requests.get(api_url, headers=headers, timeout=10)
-        r.raise_for_status()
-        return Response(r.json())
-    except requests.exceptions.RequestException as e:
-        return Response({"error": "Failed to fetch dashboard data", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    content = resp.json()["choices"][0]["message"]["content"]
+    lines = [l.strip() for l in content.split("\n") if l.strip()]
+    if len(lines) < 6: 
+        return None
+
+    question = {
+        "text": lines[0],
+        "option1": lines[1],
+        "option2": lines[2],
+        "option3": lines[3],
+        "option4": lines[4],
+        "correct_option": int(re.search(r"\d", lines[5]).group())
+    }
+    return question
+
+# ---------------- Start Assessment API ----------------
+class StartAssessmentAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        user = User.objects.first()
+        if not user:
+            user = User.objects.create(username="demo_user")
+
+        num_questions = int(request.data.get("num_questions", 5))
+        generated_questions = []
+
+        for _ in range(num_questions):
+            question = generate_ai_question(domain="Python", difficulty="Easy")
+            if question:
+                generated_questions.append(question)
+
+        if not generated_questions:
+            return Response({"error": "AI failed to generate questions"}, status=500)
+
+        session = AssessmentSession.objects.create(user=user)
+
+        return Response({
+            "message": "Assessment started",
+            "session_id": session.id,
+            "questions": generated_questions  # array of questions
+        })
+
+# ---------------- Submit Answer API ----------------
+class SubmitAnswerAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        session_id = request.data.get("session_id")
+        answer = request.data.get("answer")
+        question_text = request.data.get("question_text")
+
+        if not session_id:
+            return Response({"error": "Session ID missing"}, status=400)
+
+        try:
+            session = AssessmentSession.objects.get(id=session_id)
+        except AssessmentSession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=404)
+
+        # Optional: save user's answer to DB here
+
+        # generate next question
+        next_question = generate_ai_question(domain="Python", difficulty="Easy")
+        if not next_question:
+            session.completed = True
+            session.end_time = timezone.now()
+            session.save()
+            return Response({"message": "Assessment completed"}, status=200)
+
+        return Response({"next_question": next_question})
