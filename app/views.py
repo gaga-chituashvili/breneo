@@ -1,4 +1,3 @@
-# ai_app/views.py
 from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -9,25 +8,22 @@ from .serializers import AssessmentSerializer, BadgeSerializer, QuestionSerializ
 from django.contrib.auth.models import User
 import os, requests
 
-# Homepage
+# Home page
 def home(request):
     return HttpResponse("Welcome to Breneo Student Dashboard!")
 
-# Dashboard Progress API
+# ---------------- Dashboard API ----------------
 class DashboardProgressAPI(APIView):
-    authentication_classes = []  # Dev/Test-ისთვის
+    authentication_classes = []
     permission_classes = []
 
     def get(self, request):
         user = request.user
-        if not user.is_authenticated:
-            user = User.objects.first()
-            if not user:
-                return Response({"error": "No users in database"}, status=status.HTTP_404_NOT_FOUND)
+        if not user or not user.is_authenticated:
+            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
 
         assessments = Assessment.objects.filter(user=user)
         badges = Badge.objects.filter(user=user)
-
         completed = assessments.filter(status='completed').count()
         in_progress = assessments.filter(status='in_progress').count()
 
@@ -38,8 +34,7 @@ class DashboardProgressAPI(APIView):
             'in_progress_assessments': in_progress
         })
 
-
-# AI Questions API
+# ---------------- Questions API ----------------
 class QuestionsAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -49,22 +44,17 @@ class QuestionsAPI(APIView):
         serializer = QuestionSerializer(questions, many=True)
         return Response(serializer.data)
 
-
-# Start / Continue Assessment API
+# ---------------- Start/Continue Assessment ----------------
 class StartAssessmentAPI(APIView):
     authentication_classes = []
     permission_classes = []
 
     def post(self, request):
         user = request.user
-        if not user.is_authenticated:
-            user = User.objects.first()  # Dev/Test fallback
-            if not user:
-                return Response({"error": "No users in database"}, status=status.HTTP_404_NOT_FOUND)
+        if not user or not user.is_authenticated:
+            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # ძებნა არსებული session-ისთვის, რომელიც არ არის დასრულებული
         session = AssessmentSession.objects.filter(user=user, completed=False).first()
-
         if not session:
             first_question = Question.objects.first()
             if not first_question:
@@ -78,8 +68,74 @@ class StartAssessmentAPI(APIView):
             "current_question": serializer.data
         })
 
+# ---------------- Skill Path API ----------------
+class SkillPathAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
 
-# Proxy API (GROQ_API_KEY – backend-ში რჩება)
+    def get(self, request):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        assessments = Assessment.objects.filter(user=user)
+        skill_path = [{"name": a.name, "status": a.status, "completed_at": a.completed_at} for a in assessments]
+
+        return Response({"skill_path": skill_path})
+
+# ---------------- Recommended Jobs API ----------------
+class RecommendedJobsAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        jobs = [
+            {"title": "Python Developer", "match": "85%", "skills": ["Python", "Django"]},
+            {"title": "Data Analyst", "match": "75%", "skills": ["SQL", "Python"]},
+        ]
+        return Response({"recommended_jobs": jobs})
+
+# ---------------- Recommended Courses API ----------------
+class RecommendedCoursesAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        courses = [
+            {"title": "Advanced Python", "difficulty": "Intermediate", "duration": "4 weeks"},
+            {"title": "Django for Beginners", "difficulty": "Easy", "duration": "6 weeks"},
+        ]
+        return Response({"recommended_courses": courses})
+
+# ---------------- Progress Metrics API ----------------
+class ProgressMetricsAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        assessments = Assessment.objects.filter(user=user)
+        badges = Badge.objects.filter(user=user)
+
+        return Response({
+            "total_assessments": assessments.count(),
+            "completed_assessments": assessments.filter(status='completed').count(),
+            "in_progress_assessments": assessments.filter(status='in_progress').count(),
+            "total_badges": badges.count()
+        })
+
+# ---------------- Proxy API (optional) ----------------
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 @api_view(['GET'])
@@ -95,7 +151,4 @@ def proxy_dashboard(request):
         r.raise_for_status()
         return Response(r.json())
     except requests.exceptions.RequestException as e:
-        return Response(
-            {"error": "Failed to fetch dashboard data", "details": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({"error": "Failed to fetch dashboard data", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
