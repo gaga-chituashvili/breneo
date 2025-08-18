@@ -8,8 +8,10 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
-DEBUG = os.getenv("DEBUG", "False") == "True"
-ALLOWED_HOSTS = ['breneoapi-vftvf.ondigitalocean.app']
+# DEBUG = os.getenv("DEBUG", "False") == "True"
+ALLOWED_HOSTS = ['breneo-4wfh3.ondigitalocean.app']
+
+DEBUG=False
 
 INSTALLED_APPS = [
     'django.contrib.admin',
