@@ -3,5 +3,14 @@ from .models import Question,Assessment,AssessmentSession, Badge
 
 admin.site.register(Assessment)
 admin.site.register(Badge)
-admin.site.register(Question)
-admin.site.register(AssessmentSession)
+
+
+@admin.register(Question)
+class QuestionAdmin(admin.ModelAdmin):
+    list_display = ('text', 'domain', 'difficulty')
+    search_fields = ('text', 'domain')
+
+@admin.register(AssessmentSession)
+class AssessmentSessionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'start_time', 'end_time', 'completed')
+    list_filter = ('completed', 'start_time')
