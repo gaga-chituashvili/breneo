@@ -30,11 +30,11 @@ class Question(models.Model):
     text = models.TextField()
     domain = models.CharField(max_length=50)
     difficulty = models.CharField(max_length=10)
-    option1 = models.CharField(max_length=255, default="Option 1")
-    option2 = models.CharField(max_length=255, default="Option 2")
-    option3 = models.CharField(max_length=255, default="Option 3")
-    option4 = models.CharField(max_length=255, default="Option 4")
-    correct_option = models.IntegerField(default=1)
+    option1 = models.CharField(max_length=255)
+    option2 = models.CharField(max_length=255)
+    option3 = models.CharField(max_length=255)
+    option4 = models.CharField(max_length=255)
+    correct_option = models.IntegerField()
 
     def __str__(self):
         return f"{self.domain} - {self.text[:50]}"

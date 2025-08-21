@@ -7,7 +7,6 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 import os, requests, re
 import random
-from .utils import predict_answer
 
 # ---------------- Home ----------------
 def home(request):
