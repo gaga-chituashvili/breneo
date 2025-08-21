@@ -9,9 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
 DEBUG = os.getenv("DEBUG", "False") == "True"
-# ALLOWED_HOSTS = ['breneo-hm2jx.ondigitalocean.app']
-ALLOWED_HOSTS = ["*"] 
-
+ALLOWED_HOSTS = ["breneo.onrender.com", "www.breneo.com"]
 
 
 INSTALLED_APPS = [
