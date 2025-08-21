@@ -8,10 +8,11 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
-DEBUG = os.getenv("DEBUG", "False") == "True"
-ALLOWED_HOSTS = ['breneo-hm2jx.ondigitalocean.app']
+DEBUG = True
+# ALLOWED_HOSTS = ['breneo-hm2jx.ondigitalocean.app']
+ALLOWED_HOSTS = ["*"] 
 
-DEBUG=False
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -85,3 +86,5 @@ REST_FRAMEWORK = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+
