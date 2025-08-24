@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Assessment, Badge, Question, AssessmentSession
+from .models import Assessment, Badge, Question, AssessmentSession,UserSkill,Job,Course
 from .serializers import AssessmentSerializer, BadgeSerializer, QuestionSerializer
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -256,7 +256,7 @@ class SubmitAnswerAPI(APIView):
         question = session.questions[current_index]
 
         # AI პროგნოზი
-        predicted = predict_answer(question['domain'], question['difficulty'])
+        # predicted = predict_answer(question['domain'], question['difficulty'])
 
         # პასუხის შენახვა
         session.answers.append({
@@ -277,3 +277,46 @@ class SubmitAnswerAPI(APIView):
         next_question = session.questions[session.current_question_index]
         session.save()
         return Response({"next_question": next_question})
+    
+
+
+def calculate_match(user_skills_qs, job):
+    user_skill_names = set(user_skills_qs.values_list("skill__name", flat=True))
+    required = set(job.required_skills.values_list("name", flat=True))
+    
+    overlap = required.intersection(user_skill_names)
+    missing = required - user_skill_names
+    match_percentage = (len(overlap) / len(required)) * 100 if required else 0
+
+    return {
+        "job_title": job.title,
+        "description": job.description,
+        "match_percentage": round(match_percentage, 2),
+        "have_skills": list(overlap),
+        "missing_skills": list(missing),
+        "salary_range": f"${job.salary_min:,} - ${job.salary_max:,}",
+        "time_to_ready": job.time_to_ready,
+    }
+
+
+class CareerPathAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        user_obj = User.objects.first()
+        if not user_obj:
+            return Response({"error": "No demo user"}, status=404)
+
+        user_skills_qs = UserSkill.objects.filter(user=user_obj)
+        results = []
+
+        for job in Job.objects.all():
+            match_data = calculate_match(user_skills_qs, job)
+            # recommended courses
+            missing = match_data["missing_skills"]
+            rec_courses = Course.objects.filter(skills_taught__name__in=missing).values_list("title", flat=True)
+            match_data["recommended_courses"] = list(rec_courses)
+            results.append(match_data)
+
+        return Response(results)

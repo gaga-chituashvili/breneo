@@ -51,3 +51,25 @@ class AssessmentSession(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - Session {self.id} - Completed: {self.completed}"
+    
+
+
+class Skill(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+class UserSkill(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    skill = models.ForeignKey(Skill, on_delete=models.CASCADE)
+    points = models.IntegerField(default=1)
+
+class Job(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.TextField(null=False, default="No description")
+    salary_min = models.IntegerField(null=False, default=0)
+    salary_max = models.IntegerField(null=False, default=0)
+    time_to_ready = models.CharField(max_length=50, default="Not specified")
+    required_skills = models.ManyToManyField(Skill, related_name="jobs")
+
+class Course(models.Model):
+    title = models.CharField(max_length=200)
+    skills_taught = models.ManyToManyField(Skill, related_name="courses")
