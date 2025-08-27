@@ -12,3 +12,4 @@ requests
 python-dotenv
 joblib
 scikit-learn
+psycopg2-binary>=2.9
