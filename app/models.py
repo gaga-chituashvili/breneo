@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+import uuid
 
 
 
@@ -73,3 +74,22 @@ class Job(models.Model):
 class Course(models.Model):
     title = models.CharField(max_length=200)
     skills_taught = models.ManyToManyField(Skill, related_name="courses")
+
+
+
+
+
+class DynamicTestQuestion(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    questionid = models.CharField(max_length=50, unique=True)
+    category = models.CharField(max_length=100)
+    questiontext = models.TextField()
+    option1 = models.CharField(max_length=255)
+    option2 = models.CharField(max_length=255)
+    option3 = models.CharField(max_length=255)
+    option4 = models.CharField(max_length=255)
+    correct_option = models.IntegerField(default='')
+    isactive = models.BooleanField(default=True)
+    createdat = models.DateTimeField(auto_now_add=True)
+    updatedat = models.DateTimeField(auto_now=True)
+    
