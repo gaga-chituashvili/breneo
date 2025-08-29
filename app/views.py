@@ -63,18 +63,17 @@ class QuestionsAPI(APIView):
         serializer = QuestionSerializer(questions, many=True)
         return Response(serializer.data)
     
-class DynamictestquestionsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
 
+class DynamictestquestionsAPI(APIView):
     def get(self, request):
-        questions = DynamicTestQuestion.objects.all()[:50]
+        questions = list(DynamicTestQuestion.objects.filter(isactive=True))
+        random.shuffle(questions) 
         serializer = QuestionTestSerializer(questions, many=True)
         return Response(serializer.data)
 
 
-
 def get_next_question_domain(answers, previous_domain):
+    
     """
     AI determines next question domain based on user's previous answers.
     """

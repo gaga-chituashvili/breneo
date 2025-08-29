@@ -19,6 +19,6 @@ class QuestionAdmin(admin.ModelAdmin):
 
 @admin.register(DynamicTestQuestion)
 class DynamicTestQuestionAdmin(admin.ModelAdmin):
-    list_display = ('questiontext', 'category')
+    list_display = ('questiontext', 'category','difficulty')
     search_fields = ('questiontext', 'category')
 

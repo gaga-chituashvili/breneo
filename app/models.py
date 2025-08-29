@@ -78,18 +78,18 @@ class Course(models.Model):
 
 
 
-
 class DynamicTestQuestion(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     questionid = models.CharField(max_length=50, unique=True)
     category = models.CharField(max_length=100)
+    difficulty = models.CharField(max_length=10,default='easy')
     questiontext = models.TextField()
     option1 = models.CharField(max_length=255)
     option2 = models.CharField(max_length=255)
     option3 = models.CharField(max_length=255)
     option4 = models.CharField(max_length=255)
-    correct_option = models.IntegerField(default='')
+    correct_option = models.IntegerField(default=1)
     isactive = models.BooleanField(default=True)
     createdat = models.DateTimeField(auto_now_add=True)
     updatedat = models.DateTimeField(auto_now=True)
-    
+

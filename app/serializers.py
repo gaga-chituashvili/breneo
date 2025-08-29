@@ -26,6 +26,7 @@ class QuestionTestSerializer(serializers.ModelSerializer):
             "questionid",
             "questiontext",
             "category",
+            'difficulty',
             "option1",
             "option2",
             "option3",
