@@ -8,7 +8,8 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
-DEBUG = os.getenv("DEBUG", "False") == "True"
+DEBUG=False
+
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
@@ -106,3 +107,8 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.AllowAny",
     ),
 }
+
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://breneo.onrender.com",
+]
