@@ -1,5 +1,6 @@
 from django.http import HttpResponse
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Assessment, Badge,AssessmentSession, UserSkill, Job, Course,DynamicTechQuestion
 from .serializers import QuestionTechSerializer
@@ -52,6 +53,32 @@ class DashboardProgressAPI(APIView):
             "recommended_courses": courses,
             "current_session_id": current_session.id if current_session else None
         })
+    
+
+
+class RecommendedJobsAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        jobs = [
+            {"title": "Python Developer", "match": "85%", "skills": ["Python", "Django"]},
+            {"title": "Data Analyst", "match": "75%", "skills": ["SQL", "Python"]},
+        ]
+        return Response({"recommended_jobs": jobs})
+
+# ---------------- Recommended Courses ----------------
+class RecommendedCoursesAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        courses = [
+            {"title": "Advanced Python", "difficulty": "Intermediate", "duration": "4 weeks"},
+            {"title": "Django for Beginners", "difficulty": "Easy", "duration": "6 weeks"},
+        ]
+        return Response({"recommended_courses": courses})
+    
 
 # ---------------- Questions API ----------------
 class DynamictestquestionsAPI(APIView):
@@ -92,6 +119,7 @@ def get_next_question_domain(answers, previous_domain):
         return previous_domain
 
 # ---------------- Start Assessment API ----------------
+
 class StartAssessmentAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -102,7 +130,7 @@ class StartAssessmentAPI(APIView):
             user = User.objects.create(username="demo_user")
 
         num_questions = int(request.data.get("num_questions", 5))
-        questions = list(DynamicTechQuestion.objects.all())
+        questions = list(DynamicTechQuestion.objects.filter(isactive=True))
         if not questions:
             return Response({"error": "No questions available"}, status=400)
 
@@ -114,13 +142,13 @@ class StartAssessmentAPI(APIView):
         session = AssessmentSession.objects.create(
             user=user,
             questions=[{
-                "text": q.text,
+                "text": q.questiontext,
                 "option1": q.option1,
                 "option2": q.option2,
                 "option3": q.option3,
                 "option4": q.option4,
                 "correct_option": q.correct_option,
-                "domain": q.domain,
+                "skill": q.skill,
                 "difficulty": q.difficulty
             } for q in selected_questions],
             current_question_index=0,
@@ -133,68 +161,50 @@ class StartAssessmentAPI(APIView):
             "questions": session.questions
         })
 
-# ---------------- Submit Answer API ----------------
+
+
 # ---------------- Submit Answer API ----------------
 class SubmitAnswerAPI(APIView):
     authentication_classes = []
     permission_classes = []
 
     def post(self, request):
-        session_id = request.data.get("session_id")
-        answer = request.data.get("answer")
-        question_text = request.data.get("question_text")
-
-        if not session_id:
-            return Response({"error": "Session ID missing"}, status=400)
-
         try:
+            session_id = request.data.get("session_id")
+            answer = request.data.get("answer")
+            question_text = request.data.get("question_text")
+
+            if not session_id or not answer or not question_text:
+                return Response({"error": "Missing parameters"}, status=400)
+
             session = AssessmentSession.objects.get(id=session_id)
-        except AssessmentSession.DoesNotExist:
-            return Response({"error": "Session not found"}, status=404)
 
-        # Save current answer
-        session.answers.append({
-            "question": question_text,
-            "answer": answer
-        })
-        session.current_question_index += 1
-        session.save()
+            
+            prev_question = next((q for q in session.questions if q.get("text") == question_text), None)
+            if not prev_question:
+                return Response({"error": "Question not found in session"}, status=400)
 
-        # Check if assessment completed
-        if session.current_question_index >= len(session.questions):
-            session.completed = True
-            session.end_time = timezone.now()
+            
+            is_correct = False
+            for i in range(1, 5):
+                if answer.strip() == prev_question.get(f"option{i}"):
+                    is_correct = (i == prev_question.get("correct_option"))
+                    break
+
+            
+            session.answers.append({
+                "questiontext": question_text,
+                "answer": answer,
+                "correct": is_correct
+            })
             session.save()
-            return Response({"message": "Assessment completed"}, status=200)
 
-        # Return next question
-        next_question = session.questions[session.current_question_index]
-        return Response({"next_question": next_question})
+            return Response({"message": "Answer submitted", "correct": is_correct})
 
-
-# ---------------- Recommended Jobs ----------------
-class RecommendedJobsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
-
-    def get(self, request):
-        jobs = [
-            {"title": "Python Developer", "match": "85%", "skills": ["Python", "Django"]},
-            {"title": "Data Analyst", "match": "75%", "skills": ["SQL", "Python"]},
-        ]
-        return Response({"recommended_jobs": jobs})
-
-# ---------------- Recommended Courses ----------------
-class RecommendedCoursesAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
-
-    def get(self, request):
-        courses = [
-            {"title": "Advanced Python", "difficulty": "Intermediate", "duration": "4 weeks"},
-            {"title": "Django for Beginners", "difficulty": "Easy", "duration": "6 weeks"},
-        ]
-        return Response({"recommended_courses": courses})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=500)
 
 # ---------------- Progress Metrics ----------------
 class ProgressMetricsAPI(APIView):
@@ -256,3 +266,29 @@ class CareerPathAPI(APIView):
             results.append(match_data)
 
         return Response(results)
+    
+
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import AssessmentSession, DynamicTechQuestion
+
+@api_view(["POST"])
+def finish_assessment(request):
+    session_id = request.data.get("session_id")
+    try:
+        session = AssessmentSession.objects.get(id=session_id)
+    except AssessmentSession.DoesNotExist:
+        return Response({"error": "Session not found"}, status=404)
+
+    score = 0
+    for ans in session.answers:
+        try:
+        
+            q = DynamicTechQuestion.objects.get(questiontext=ans["questiontext"])
+            if q.correct_option and ans["answer"] == getattr(q, f"option{q.correct_option}"):
+                score += 1
+        except DynamicTechQuestion.DoesNotExist:
+            continue
+
+    return Response({"score": f"{score} / {len(session.answers)}"})

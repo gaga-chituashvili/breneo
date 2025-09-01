@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     home, DashboardProgressAPI, StartAssessmentAPI,
-    RecommendedJobsAPI, RecommendedCoursesAPI, ProgressMetricsAPI,SubmitAnswerAPI,CareerPathAPI,DynamictestquestionsAPI
+    ProgressMetricsAPI,SubmitAnswerAPI,CareerPathAPI,DynamictestquestionsAPI,finish_assessment,RecommendedJobsAPI,RecommendedCoursesAPI
 )
 
 urlpatterns = [
@@ -14,4 +14,5 @@ urlpatterns = [
     path('api/submit-answer/', SubmitAnswerAPI.as_view(), name='submit-answer'),
     path('api/career-path/', CareerPathAPI.as_view(), name='career-path'),
     path('api/techquestions/', DynamictestquestionsAPI.as_view(), name='tech_questions'),
+    path("api/finish-assessment/", finish_assessment, name='finish_assessment'),
 ]
