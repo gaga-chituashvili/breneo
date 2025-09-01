@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Assessment, Badge, Question,DynamicTestQuestion
+from .models import Assessment, Badge,DynamicTechQuestion
 
 class AssessmentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,21 +11,18 @@ class BadgeSerializer(serializers.ModelSerializer):
         model = Badge
         fields = ['name', 'achieved_at']
 
-class QuestionSerializer(serializers.ModelSerializer):
+
+
+
+class QuestionTechSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Question
-        fields = ['text','domain','difficulty', 'option1', 'option2', 'option3', 'option4', 'correct_option']
-
-
-
-class QuestionTestSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DynamicTestQuestion
+        model = DynamicTechQuestion
         fields = [
             "id",
             "questionid",
             "questiontext",
-            "category",
+            "RoleMapping",
+            "skill",
             'difficulty',
             "option1",
             "option2",

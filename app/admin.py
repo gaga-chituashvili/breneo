@@ -1,6 +1,5 @@
 from django.contrib import admin
-from .models import Question,Assessment,AssessmentSession, Badge,Job,Skill,UserSkill,Course,DynamicTestQuestion
-import json
+from .models import Assessment,AssessmentSession, Badge,Job,Skill,UserSkill,Course,DynamicTechQuestion
 
 admin.site.register(Assessment)
 admin.site.register(Badge)
@@ -10,15 +9,8 @@ admin.site.register(UserSkill)
 admin.site.register(Course)
 
 
-
-@admin.register(Question)
-class QuestionAdmin(admin.ModelAdmin):
-    list_display = ('text', 'domain', 'difficulty')
-    search_fields = ('text', 'domain')
-
-
-@admin.register(DynamicTestQuestion)
-class DynamicTestQuestionAdmin(admin.ModelAdmin):
-    list_display = ('questiontext', 'category','difficulty')
-    search_fields = ('questiontext', 'category')
+@admin.register(DynamicTechQuestion)
+class DynamicTechQuestion(admin.ModelAdmin):
+    list_display = ('questiontext', 'skill','RoleMapping','difficulty')
+    search_fields = ('questiontext', 'skill','RoleMapping')
 

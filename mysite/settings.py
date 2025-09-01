@@ -18,6 +18,12 @@ ALLOWED_HOSTS = [
     "www.breneo.onrender.com",
 ]
 
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -83,9 +89,6 @@ DATABASES = {
     }
 }
 
-
-STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
 if DEBUG:

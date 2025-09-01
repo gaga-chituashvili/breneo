@@ -27,18 +27,7 @@ class Badge(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.name}"
 
-class Question(models.Model):
-    text = models.TextField()
-    domain = models.CharField(max_length=50)
-    difficulty = models.CharField(max_length=10)
-    option1 = models.CharField(max_length=255)
-    option2 = models.CharField(max_length=255)
-    option3 = models.CharField(max_length=255)
-    option4 = models.CharField(max_length=255)
-    correct_option = models.IntegerField()
 
-    def __str__(self):
-        return f"{self.domain} - {self.text[:50]}"
 
 
 class AssessmentSession(models.Model):
@@ -78,10 +67,11 @@ class Course(models.Model):
 
 
 
-class DynamicTestQuestion(models.Model):
+class DynamicTechQuestion(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     questionid = models.CharField(max_length=50, unique=True)
-    category = models.CharField(max_length=100)
+    skill = models.CharField(max_length=100,default='')
+    RoleMapping = models.CharField(max_length=100)
     difficulty = models.CharField(max_length=10,default='easy')
     questiontext = models.TextField()
     option1 = models.CharField(max_length=255)
@@ -92,4 +82,7 @@ class DynamicTestQuestion(models.Model):
     isactive = models.BooleanField(default=True)
     createdat = models.DateTimeField(auto_now_add=True)
     updatedat = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.skill} - {self.questiontext[:50]}"
 

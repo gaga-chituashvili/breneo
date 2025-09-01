@@ -1,8 +1,8 @@
 from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Assessment, Badge, Question, AssessmentSession, UserSkill, Job, Course,DynamicTestQuestion
-from .serializers import QuestionSerializer,QuestionTestSerializer
+from .models import Assessment, Badge,AssessmentSession, UserSkill, Job, Course,DynamicTechQuestion
+from .serializers import QuestionTechSerializer
 from django.contrib.auth.models import User
 from django.utils import timezone
 import os, requests, random, re
@@ -54,21 +54,11 @@ class DashboardProgressAPI(APIView):
         })
 
 # ---------------- Questions API ----------------
-class QuestionsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
-
-    def get(self, request):
-        questions = Question.objects.all()[:50]
-        serializer = QuestionSerializer(questions, many=True)
-        return Response(serializer.data)
-    
-
 class DynamictestquestionsAPI(APIView):
     def get(self, request):
-        questions = list(DynamicTestQuestion.objects.filter(isactive=True))
+        questions = list(DynamicTechQuestion.objects.filter(isactive=True))
         random.shuffle(questions) 
-        serializer = QuestionTestSerializer(questions, many=True)
+        serializer = QuestionTechSerializer(questions, many=True)
         return Response(serializer.data)
 
 
@@ -112,7 +102,7 @@ class StartAssessmentAPI(APIView):
             user = User.objects.create(username="demo_user")
 
         num_questions = int(request.data.get("num_questions", 5))
-        questions = list(Question.objects.all())
+        questions = list(DynamicTechQuestion.objects.all())
         if not questions:
             return Response({"error": "No questions available"}, status=400)
 
