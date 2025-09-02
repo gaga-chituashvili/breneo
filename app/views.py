@@ -2,11 +2,10 @@ from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Assessment, Badge,AssessmentSession, UserSkill, Job, Course,DynamicTechQuestion
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion
 from .serializers import QuestionTechSerializer
 from django.contrib.auth.models import User
-from django.utils import timezone
-import os, requests, random, re
+import os, requests, random
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -24,73 +23,115 @@ class DashboardProgressAPI(APIView):
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
+        # Assessments & Sessions
         assessments = Assessment.objects.filter(user=user)
         badges = Badge.objects.filter(user=user)
-        completed = assessments.filter(status='completed').count()
-        in_progress = assessments.filter(status='in_progress').count()
+        completed_count = assessments.filter(status='completed').count()
+        in_progress_count = assessments.filter(status='in_progress').count()
         current_session = AssessmentSession.objects.filter(user=user, completed=False).first()
 
-        jobs = [
-            {"title": "Python Developer", "match": "85%", "skills": ["Python", "Django"]},
-            {"title": "Data Analyst", "match": "75%", "skills": ["SQL", "Python"]},
-        ]
-        courses = [
-            {"title": "Advanced Python", "difficulty": "Intermediate", "duration": "4 weeks"},
-            {"title": "Django for Beginners", "difficulty": "Easy", "duration": "6 weeks"},
-        ]
+        # User skills
+        user_skills = UserSkill.objects.filter(user=user)
+        skill_summary = {us.skill.name: us.level for us in user_skills}
+
+        # Recommended jobs (dynamic match)
+        jobs_data = []
+        for job in Job.objects.all():
+            match = calculate_match(user_skills, job)
+            jobs_data.append(match)
+
+        # Recommended courses (based on missing skills)
+        courses_data = []
+        for job_match in jobs_data:
+            missing_skills = job_match.get("missing_skills", [])
+            courses = Course.objects.filter(skills_taught__name__in=missing_skills).values_list("title", flat=True)
+            courses_data.extend(list(courses))
+        courses_data = list(set(courses_data)) 
 
         return Response({
-            "welcome_message": f"Hello, {user.username}!",
-            "progress": {
-                "completed_assessments": completed,
-                "in_progress_assessments": in_progress,
+            "user": {
+                "username": user.username,
+                "skills": skill_summary
             },
-            "metrics": {
+            "progress": {
                 "total_assessments": assessments.count(),
+                "completed_assessments": completed_count,
+                "in_progress_assessments": in_progress_count,
                 "total_badges": badges.count(),
             },
-            "recommended_jobs": jobs,
-            "recommended_courses": courses,
-            "current_session_id": current_session.id if current_session else None
+            "current_session": {
+                "id": current_session.id if current_session else None,
+                "questions_count": len(current_session.questions) if current_session else 0
+            },
+            "recommended_jobs": jobs_data,
+            "recommended_courses": courses_data
         })
-    
 
-
+# ---------------- Recommended Jobs ----------------
 class RecommendedJobsAPI(APIView):
     authentication_classes = []
     permission_classes = []
 
     def get(self, request):
-        jobs = [
-            {"title": "Python Developer", "match": "85%", "skills": ["Python", "Django"]},
-            {"title": "Data Analyst", "match": "75%", "skills": ["SQL", "Python"]},
-        ]
-        return Response({"recommended_jobs": jobs})
+        user = User.objects.first()
+        if not user:
+            return Response({"error": "No demo user"}, status=404)
 
-# ---------------- Recommended Courses ----------------
+        user_skills = UserSkill.objects.filter(user=user)
+        jobs_data = [calculate_match(user_skills, job) for job in Job.objects.all()]
+        return Response({"recommended_jobs": jobs_data})
+
+# ---------------- Recommended Courses API ----------------
 class RecommendedCoursesAPI(APIView):
     authentication_classes = []
     permission_classes = []
 
     def get(self, request):
-        courses = [
-            {"title": "Advanced Python", "difficulty": "Intermediate", "duration": "4 weeks"},
-            {"title": "Django for Beginners", "difficulty": "Easy", "duration": "6 weeks"},
-        ]
-        return Response({"recommended_courses": courses})
-    
+        user = User.objects.first()
+        if not user:
+            return Response({"error": "No demo user"}, status=404)
+
+        user_skills = UserSkill.objects.filter(user=user)
+        courses_set = set()
+        for job in Job.objects.all():
+            match_data = calculate_match(user_skills, job)
+            missing = match_data.get("missing_skills", [])
+            courses = Course.objects.filter(skills_taught__name__in=missing).values_list("title", flat=True)
+            courses_set.update(courses)
+
+        return Response({"recommended_courses": list(courses_set)})
+
+# ---------------- Career Path API ----------------
+class CareerPathAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        user = User.objects.first()
+        if not user:
+            return Response({"error": "No demo user"}, status=404)
+
+        user_skills = UserSkill.objects.filter(user=user)
+        career_paths = []
+        for job in Job.objects.all():
+            match_data = calculate_match(user_skills, job)
+            missing_skills = match_data.get("missing_skills", [])
+            rec_courses = Course.objects.filter(skills_taught__name__in=missing_skills).values_list("title", flat=True)
+            match_data["recommended_courses"] = list(rec_courses)
+            career_paths.append(match_data)
+
+        return Response({"career_paths": career_paths})
 
 # ---------------- Questions API ----------------
 class DynamictestquestionsAPI(APIView):
     def get(self, request):
         questions = list(DynamicTechQuestion.objects.filter(isactive=True))
-        random.shuffle(questions) 
+        random.shuffle(questions)
         serializer = QuestionTechSerializer(questions, many=True)
         return Response(serializer.data)
 
-
+# ---------------- AI Next Question Helper ----------------
 def get_next_question_domain(answers, previous_domain):
-    
     """
     AI determines next question domain based on user's previous answers.
     """
@@ -119,7 +160,6 @@ def get_next_question_domain(answers, previous_domain):
         return previous_domain
 
 # ---------------- Start Assessment API ----------------
-
 class StartAssessmentAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -161,8 +201,6 @@ class StartAssessmentAPI(APIView):
             "questions": session.questions
         })
 
-
-
 # ---------------- Submit Answer API ----------------
 class SubmitAnswerAPI(APIView):
     authentication_classes = []
@@ -179,27 +217,32 @@ class SubmitAnswerAPI(APIView):
 
             session = AssessmentSession.objects.get(id=session_id)
 
-            
             prev_question = next((q for q in session.questions if q.get("text") == question_text), None)
             if not prev_question:
                 return Response({"error": "Question not found in session"}, status=400)
 
-            
             is_correct = False
             for i in range(1, 5):
                 if answer.strip() == prev_question.get(f"option{i}"):
                     is_correct = (i == prev_question.get("correct_option"))
                     break
 
-            
             session.answers.append({
                 "questiontext": question_text,
                 "answer": answer,
                 "correct": is_correct
             })
+
+            # AI-based next question selection
+            next_domain = get_next_question_domain(session.answers, prev_question.get("skill"))
+            session.current_question_index += 1
             session.save()
 
-            return Response({"message": "Answer submitted", "correct": is_correct})
+            return Response({
+                "message": "Answer submitted",
+                "correct": is_correct,
+                "next_domain": next_domain
+            })
 
         except Exception as e:
             import traceback
@@ -230,7 +273,6 @@ class ProgressMetricsAPI(APIView):
 def calculate_match(user_skills_qs, job):
     user_skill_names = set(user_skills_qs.values_list("skill__name", flat=True))
     required = set(job.required_skills.values_list("name", flat=True))
-    
     overlap = required.intersection(user_skill_names)
     missing = required - user_skill_names
     match_percentage = (len(overlap) / len(required)) * 100 if required else 0
@@ -259,20 +301,14 @@ class CareerPathAPI(APIView):
 
         for job in Job.objects.all():
             match_data = calculate_match(user_skills_qs, job)
-            # recommended courses
             missing = match_data["missing_skills"]
             rec_courses = Course.objects.filter(skills_taught__name__in=missing).values_list("title", flat=True)
             match_data["recommended_courses"] = list(rec_courses)
             results.append(match_data)
 
         return Response(results)
-    
 
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from .models import AssessmentSession, DynamicTechQuestion
-
+# ---------------- Finish Assessment ----------------
 @api_view(["POST"])
 def finish_assessment(request):
     session_id = request.data.get("session_id")
@@ -284,11 +320,18 @@ def finish_assessment(request):
     score = 0
     for ans in session.answers:
         try:
-        
             q = DynamicTechQuestion.objects.get(questiontext=ans["questiontext"])
             if q.correct_option and ans["answer"] == getattr(q, f"option{q.correct_option}"):
                 score += 1
         except DynamicTechQuestion.DoesNotExist:
             continue
 
-    return Response({"score": f"{score} / {len(session.answers)}"})
+    session.completed = True
+    session.save()
+
+    percentage = round((score / len(session.answers)) * 100, 2) if session.answers else 0
+
+    return Response({
+        "score": f"{score} / {len(session.answers)}",
+        "percentage": percentage
+    })

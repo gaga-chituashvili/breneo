@@ -12,7 +12,7 @@ urlpatterns = [
     path('api/courses/recommended/', RecommendedCoursesAPI.as_view(), name='recommended-courses'),
     path('api/progress/', ProgressMetricsAPI.as_view(), name='progress-metrics'),
     path('api/submit-answer/', SubmitAnswerAPI.as_view(), name='submit-answer'),
-    path('api/career-path/', CareerPathAPI.as_view(), name='career-path'),
+    path('api/careerpath/', CareerPathAPI.as_view(), name='career-path'),
     path('api/techquestions/', DynamictestquestionsAPI.as_view(), name='tech_questions'),
     path("api/finish-assessment/", finish_assessment, name='finish_assessment'),
 ]
