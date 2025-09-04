@@ -1,11 +1,14 @@
+import joblib
 from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill
 from .serializers import QuestionTechSerializer
 from django.contrib.auth.models import User
 import os, requests, random
+from rest_framework import status
+
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -102,26 +105,98 @@ class RecommendedCoursesAPI(APIView):
         return Response({"recommended_courses": list(courses_set)})
 
 # ---------------- Career Path API ----------------
+def calculate_match(user_skills_qs, job):
+    user_skill_names = set(user_skills_qs.values_list("skill__name", flat=True))
+    required = set(job.required_skills.values_list("name", flat=True))
+    overlap = required.intersection(user_skill_names)
+    missing = required - user_skill_names
+    match_percentage = (len(overlap) / len(required)) * 100 if required else 0
+
+    return {
+        "job_title": job.title,
+        "description": job.description,
+        "match_percentage": round(match_percentage, 2),
+        "have_skills": list(overlap),
+        "missing_skills": list(missing),
+        "salary_range": f"${job.salary_min:,} - ${job.salary_max:,}",
+        "time_to_ready": job.time_to_ready,
+    }
+
+
+import os
+import joblib
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.contrib.auth.models import User
+from app.models import UserSkill, Job, Course
+
 class CareerPathAPI(APIView):
     authentication_classes = []
     permission_classes = []
 
     def get(self, request):
+        import os, joblib
+
+        # 1️⃣ Demo user
         user = User.objects.first()
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
-        user_skills = UserSkill.objects.filter(user=user)
-        career_paths = []
-        for job in Job.objects.all():
-            match_data = calculate_match(user_skills, job)
-            missing_skills = match_data.get("missing_skills", [])
-            rec_courses = Course.objects.filter(skills_taught__name__in=missing_skills).values_list("title", flat=True)
-            match_data["recommended_courses"] = list(rec_courses)
-            career_paths.append(match_data)
+        # 2️⃣ ML model
+        model_path = os.path.join("app", "ml", "model.pkl")
+        if not os.path.exists(model_path):
+            return Response({"error": "ML model not found"}, status=500)
+        model = joblib.load(model_path)
 
-        return Response({"career_paths": career_paths})
+        # 3️⃣ User skills
+        user_skills_qs = UserSkill.objects.filter(user=user)
+        if not user_skills_qs.exists():
+            return Response({"error": "User has no skills"}, status=400)
 
+        # 4️⃣ Build skill vector
+        feature_names = model.feature_names_in_
+        skill_vector = [
+            user_skills_qs.filter(skill__name=skill).first().points if user_skills_qs.filter(skill__name=skill).exists() else 0
+            for skill in feature_names
+        ]
+
+        # 5️⃣ Predict job title
+        try:
+            predicted_job_title = model.predict([skill_vector])[0]
+        except Exception as e:
+            return Response({"error": f"Prediction failed: {str(e)}"}, status=500)
+
+        # 6️⃣ Mapping ML output → DB job title
+        job_title_map = {
+            "Backend Developer": "Python Developer",  # map ML output to DB title
+            "Frontend Developer": "Frontend Developer",
+            "Data Analyst": "Data Analyst",
+        }
+        db_job_title = job_title_map.get(predicted_job_title, predicted_job_title)
+
+        # 7️⃣ Get job from DB
+        try:
+            recommended_job = Job.objects.get(title=db_job_title)
+        except Job.DoesNotExist:
+            return Response({"error": f"Job '{db_job_title}' not found in DB"}, status=404)
+
+        # 8️⃣ Missing skills & recommended courses
+        user_skill_names = set(user_skills_qs.values_list("skill__name", flat=True))
+        required_skills = set(recommended_job.required_skills.values_list("name", flat=True))
+        missing_skills = required_skills - user_skill_names
+        rec_courses = Course.objects.filter(skills_taught__name__in=missing_skills).values_list("title", flat=True)
+
+        # 9️⃣ Result
+        result = {
+            "job_title": recommended_job.title,
+            "description": recommended_job.description,
+            "salary_range": f"${recommended_job.salary_min:,} - ${recommended_job.salary_max:,}",
+            "time_to_ready": recommended_job.time_to_ready,
+            "missing_skills": list(missing_skills),
+            "recommended_courses": list(rec_courses)
+        }
+
+        return Response(result)
 # ---------------- Questions API ----------------
 class DynamictestquestionsAPI(APIView):
     def get(self, request):
@@ -221,27 +296,60 @@ class SubmitAnswerAPI(APIView):
             if not prev_question:
                 return Response({"error": "Question not found in session"}, status=400)
 
+
             is_correct = False
-            for i in range(1, 5):
+            for i in range(1, 9):
                 if answer.strip() == prev_question.get(f"option{i}"):
                     is_correct = (i == prev_question.get("correct_option"))
                     break
 
+           
             session.answers.append({
                 "questiontext": question_text,
                 "answer": answer,
-                "correct": is_correct
+                "correct": is_correct,
+                "difficulty": prev_question.get("difficulty"),
+                "skill": prev_question.get("skill"),
+                "RoleMapping": prev_question.get("RoleMapping"),
             })
 
-            # AI-based next question selection
-            next_domain = get_next_question_domain(session.answers, prev_question.get("skill"))
+
+            if is_correct:
+                next_difficulty = "medium" if prev_question.get("difficulty") == "easy" else \
+                                  "hard" if prev_question.get("difficulty") == "medium" else None
+
+                next_qs = DynamicTechQuestion.objects.filter(
+                    RoleMapping=prev_question.get("RoleMapping"),
+                    difficulty=next_difficulty
+                ) if next_difficulty else DynamicTechQuestion.objects.none()
+            else:
+                next_qs = DynamicTechQuestion.objects.exclude(
+                    RoleMapping=prev_question.get("RoleMapping")
+                )
+
+            next_question = None
+            if next_qs.exists():
+                nq = random.choice(list(next_qs))
+                next_question = {
+                    "text": nq.questiontext,
+                    "option1": nq.option1,
+                    "option2": nq.option2,
+                    "option3": nq.option3,
+                    "option4": nq.option4,
+                    "correct_option": nq.correct_option,
+                    "skill": nq.skill,
+                    "difficulty": nq.difficulty,
+                    "RoleMapping": nq.RoleMapping,
+                }
+                session.questions.append(next_question)
+
             session.current_question_index += 1
             session.save()
 
             return Response({
                 "message": "Answer submitted",
                 "correct": is_correct,
-                "next_domain": next_domain
+                "next_question": next_question
             })
 
         except Exception as e:
@@ -269,44 +377,7 @@ class ProgressMetricsAPI(APIView):
             "total_badges": badges.count()
         })
 
-# ---------------- Career Path API ----------------
-def calculate_match(user_skills_qs, job):
-    user_skill_names = set(user_skills_qs.values_list("skill__name", flat=True))
-    required = set(job.required_skills.values_list("name", flat=True))
-    overlap = required.intersection(user_skill_names)
-    missing = required - user_skill_names
-    match_percentage = (len(overlap) / len(required)) * 100 if required else 0
 
-    return {
-        "job_title": job.title,
-        "description": job.description,
-        "match_percentage": round(match_percentage, 2),
-        "have_skills": list(overlap),
-        "missing_skills": list(missing),
-        "salary_range": f"${job.salary_min:,} - ${job.salary_max:,}",
-        "time_to_ready": job.time_to_ready,
-    }
-
-class CareerPathAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
-
-    def get(self, request):
-        user_obj = User.objects.first()
-        if not user_obj:
-            return Response({"error": "No demo user"}, status=404)
-
-        user_skills_qs = UserSkill.objects.filter(user=user_obj)
-        results = []
-
-        for job in Job.objects.all():
-            match_data = calculate_match(user_skills_qs, job)
-            missing = match_data["missing_skills"]
-            rec_courses = Course.objects.filter(skills_taught__name__in=missing).values_list("title", flat=True)
-            match_data["recommended_courses"] = list(rec_courses)
-            results.append(match_data)
-
-        return Response(results)
 
 # ---------------- Finish Assessment ----------------
 @api_view(["POST"])
@@ -335,3 +406,65 @@ def finish_assessment(request):
         "score": f"{score} / {len(session.answers)}",
         "percentage": percentage
     })
+
+
+
+class FinishAssessmentAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        session_id = request.data.get("session_id")
+        if not session_id:
+            return Response({"error": "Missing session_id"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            session = AssessmentSession.objects.get(id=session_id)
+        except AssessmentSession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Initialize skill scores
+        skill_scores = {}
+
+        for ans in session.answers:
+            question_text = ans.get("questiontext")
+            user_answer = ans.get("answer")
+
+            try:
+                question = DynamicTechQuestion.objects.get(questiontext=question_text)
+            except DynamicTechQuestion.DoesNotExist:
+                continue
+
+            skill_name = question.skill
+            correct_option = question.correct_option
+            correct_answer = getattr(question, f"option{correct_option}")
+
+            # Initialize score for this skill
+            if skill_name not in skill_scores:
+                skill_scores[skill_name] = 0
+
+            if user_answer.strip() == correct_answer.strip():
+                skill_scores[skill_name] += 1
+
+        # Update UserSkill table
+        user = session.user
+        for skill_name, points in skill_scores.items():
+            skill, _ = Skill.objects.get_or_create(name=skill_name)
+            user_skill, created = UserSkill.objects.get_or_create(user=user, skill=skill)
+            user_skill.points += points
+            user_skill.save()
+
+        # Mark session completed
+        session.completed = True
+        session.save()
+
+        total_score = sum(skill_scores.values())
+        total_questions = len(session.answers)
+
+        return Response({
+            "message": "Assessment finished successfully",
+            "total_score": total_score,
+            "total_questions": total_questions,
+            "score_per_skill": skill_scores,
+            "score_per_skill": skill_scores or {}  
+        })
