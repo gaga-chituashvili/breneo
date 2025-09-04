@@ -27,24 +27,24 @@ class DashboardProgressAPI(APIView):
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
-        # Assessments & Sessions
+        
         assessments = Assessment.objects.filter(user=user)
         badges = Badge.objects.filter(user=user)
         completed_count = assessments.filter(status='completed').count()
         in_progress_count = assessments.filter(status='in_progress').count()
         current_session = AssessmentSession.objects.filter(user=user, completed=False).first()
 
-        # User skills
+       
         user_skills = UserSkill.objects.filter(user=user)
         skill_summary = {us.skill.name: us.level for us in user_skills}
 
-        # Recommended jobs (dynamic match)
+       
         jobs_data = []
         for job in Job.objects.all():
             match = calculate_match(user_skills, job)
             jobs_data.append(match)
 
-        # Recommended courses (based on missing skills)
+       
         courses_data = []
         for job_match in jobs_data:
             missing_skills = job_match.get("missing_skills", [])
@@ -275,7 +275,7 @@ class StartAssessmentAPI(APIView):
         })
 
 # ---------------- Submit Answer API ----------------
-from .views import get_next_question_domain  # იქიდან სადაც გაქვს ეს helper
+from .views import get_next_question_domain 
 
 class SubmitAnswerAPI(APIView):
     authentication_classes = []
@@ -328,7 +328,7 @@ class SubmitAnswerAPI(APIView):
                     "hard" if prev_question.get("difficulty") == "medium" else None
                 )
             else:
-                next_difficulty = "easy"  # თუ ვერ უპასუხა → დავაბრუნოთ უფრო მარტივზე
+                next_difficulty = "easy"
 
             # ------------------ next question selection ------------------
             next_qs = DynamicTechQuestion.objects.filter(
@@ -436,7 +436,7 @@ class FinishAssessmentAPI(APIView):
         except AssessmentSession.DoesNotExist:
             return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Initialize skill scores
+       
         skill_scores = {}
 
         for ans in session.answers:
@@ -452,14 +452,14 @@ class FinishAssessmentAPI(APIView):
             correct_option = question.correct_option
             correct_answer = getattr(question, f"option{correct_option}")
 
-            # Initialize score for this skill
+           
             if skill_name not in skill_scores:
                 skill_scores[skill_name] = 0
 
             if user_answer.strip() == correct_answer.strip():
                 skill_scores[skill_name] += 1
 
-        # Update UserSkill table
+        
         user = session.user
         for skill_name, points in skill_scores.items():
             skill, _ = Skill.objects.get_or_create(name=skill_name)
@@ -467,7 +467,7 @@ class FinishAssessmentAPI(APIView):
             user_skill.points += points
             user_skill.save()
 
-        # Mark session completed
+        
         session.completed = True
         session.save()
 
