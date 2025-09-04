@@ -8,6 +8,7 @@ from .serializers import QuestionTechSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -123,13 +124,6 @@ def calculate_match(user_skills_qs, job):
     }
 
 
-import os
-import joblib
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.contrib.auth.models import User
-from app.models import UserSkill, Job, Course
-
 class CareerPathAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -198,12 +192,16 @@ class CareerPathAPI(APIView):
 
         return Response(result)
 # ---------------- Questions API ----------------
+
 class DynamictestquestionsAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         questions = list(DynamicTechQuestion.objects.filter(isactive=True))
         random.shuffle(questions)
         serializer = QuestionTechSerializer(questions, many=True)
         return Response(serializer.data)
+
 
 # ---------------- AI Next Question Helper ----------------
 def get_next_question_domain(answers, previous_domain):
