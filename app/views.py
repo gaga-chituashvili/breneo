@@ -137,56 +137,56 @@ class CareerPathAPI(APIView):
     def get(self, request):
         import os, joblib
 
-        # 1️⃣ Demo user
+       
         user = User.objects.first()
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
-        # 2️⃣ ML model
+        
         model_path = os.path.join("app", "ml", "model.pkl")
         if not os.path.exists(model_path):
             return Response({"error": "ML model not found"}, status=500)
         model = joblib.load(model_path)
 
-        # 3️⃣ User skills
+        
         user_skills_qs = UserSkill.objects.filter(user=user)
         if not user_skills_qs.exists():
             return Response({"error": "User has no skills"}, status=400)
 
-        # 4️⃣ Build skill vector
+       
         feature_names = model.feature_names_in_
         skill_vector = [
             user_skills_qs.filter(skill__name=skill).first().points if user_skills_qs.filter(skill__name=skill).exists() else 0
             for skill in feature_names
         ]
 
-        # 5️⃣ Predict job title
+        
         try:
             predicted_job_title = model.predict([skill_vector])[0]
         except Exception as e:
             return Response({"error": f"Prediction failed: {str(e)}"}, status=500)
 
-        # 6️⃣ Mapping ML output → DB job title
+       
         job_title_map = {
-            "Backend Developer": "Python Developer",  # map ML output to DB title
+            "Backend Developer": "Python Developer",  
             "Frontend Developer": "Frontend Developer",
             "Data Analyst": "Data Analyst",
         }
         db_job_title = job_title_map.get(predicted_job_title, predicted_job_title)
 
-        # 7️⃣ Get job from DB
+       
         try:
             recommended_job = Job.objects.get(title=db_job_title)
         except Job.DoesNotExist:
             return Response({"error": f"Job '{db_job_title}' not found in DB"}, status=404)
 
-        # 8️⃣ Missing skills & recommended courses
+       
         user_skill_names = set(user_skills_qs.values_list("skill__name", flat=True))
         required_skills = set(recommended_job.required_skills.values_list("name", flat=True))
         missing_skills = required_skills - user_skill_names
         rec_courses = Course.objects.filter(skills_taught__name__in=missing_skills).values_list("title", flat=True)
 
-        # 9️⃣ Result
+        
         result = {
             "job_title": recommended_job.title,
             "description": recommended_job.description,
@@ -227,7 +227,7 @@ def get_next_question_domain(answers, previous_domain):
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 10
         }
-        resp = requests.post(url, headers=headers, json=data, timeout=30)
+        resp = requests.post(url, headers=headers, json=data, timeout=10)
         resp.raise_for_status()
         content = resp.json()["choices"][0]["message"]["content"].strip()
         return content or previous_domain
@@ -277,6 +277,8 @@ class StartAssessmentAPI(APIView):
         })
 
 # ---------------- Submit Answer API ----------------
+from .views import get_next_question_domain  # იქიდან სადაც გაქვს ეს helper
+
 class SubmitAnswerAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -296,14 +298,14 @@ class SubmitAnswerAPI(APIView):
             if not prev_question:
                 return Response({"error": "Question not found in session"}, status=400)
 
-
+            # ------------------ check correctness ------------------
             is_correct = False
             for i in range(1, 9):
                 if answer.strip() == prev_question.get(f"option{i}"):
                     is_correct = (i == prev_question.get("correct_option"))
                     break
 
-           
+            # ------------------ save answer ------------------
             session.answers.append({
                 "questiontext": question_text,
                 "answer": answer,
@@ -313,19 +315,32 @@ class SubmitAnswerAPI(APIView):
                 "RoleMapping": prev_question.get("RoleMapping"),
             })
 
+            # ------------------ AI logic for next domain ------------------
+            answers_summary = [
+                {"q": a["questiontext"], "ans": a["answer"], "correct": a["correct"]}
+                for a in session.answers
+            ]
+            previous_domain = prev_question.get("RoleMapping")
+            next_domain = get_next_question_domain(answers_summary, previous_domain)
 
+            # ------------------ next difficulty ------------------
             if is_correct:
-                next_difficulty = "medium" if prev_question.get("difficulty") == "easy" else \
-                                  "hard" if prev_question.get("difficulty") == "medium" else None
-
-                next_qs = DynamicTechQuestion.objects.filter(
-                    RoleMapping=prev_question.get("RoleMapping"),
-                    difficulty=next_difficulty
-                ) if next_difficulty else DynamicTechQuestion.objects.none()
-            else:
-                next_qs = DynamicTechQuestion.objects.exclude(
-                    RoleMapping=prev_question.get("RoleMapping")
+                next_difficulty = (
+                    "medium" if prev_question.get("difficulty") == "easy" else
+                    "hard" if prev_question.get("difficulty") == "medium" else None
                 )
+            else:
+                next_difficulty = "easy"  # თუ ვერ უპასუხა → დავაბრუნოთ უფრო მარტივზე
+
+            # ------------------ next question selection ------------------
+            next_qs = DynamicTechQuestion.objects.filter(
+                RoleMapping=next_domain,
+                difficulty=next_difficulty if next_difficulty else prev_question.get("difficulty"),
+                isactive=True
+            )
+
+            if not next_qs.exists():
+                next_qs = DynamicTechQuestion.objects.filter(isactive=True)
 
             next_question = None
             if next_qs.exists():
@@ -466,5 +481,4 @@ class FinishAssessmentAPI(APIView):
             "total_score": total_score,
             "total_questions": total_questions,
             "score_per_skill": skill_scores,
-            "score_per_skill": skill_scores or {}  
         })
