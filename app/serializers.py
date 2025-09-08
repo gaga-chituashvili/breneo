@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Assessment, Badge,DynamicTechQuestion
+from .models import Assessment, Badge,DynamicTechQuestion,CareerCategory, CareerQuestion, CareerOption
 
 class AssessmentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,3 +33,24 @@ class QuestionTechSerializer(serializers.ModelSerializer):
             "createdat",
             "updatedat",
         ]
+
+
+
+class CareerOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CareerOption
+        fields = ['id', 'text', 'RoleMapping']
+
+class CareerQuestionSerializer(serializers.ModelSerializer):
+    options = CareerOptionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = CareerQuestion
+        fields = ['id', 'text', 'options']
+
+class CareerCategorySerializer(serializers.ModelSerializer):
+    questions = CareerQuestionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = CareerCategory
+        fields = ['id', 'code', 'title', 'questions']

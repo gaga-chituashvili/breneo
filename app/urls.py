@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     home, DashboardProgressAPI, StartAssessmentAPI,
-    ProgressMetricsAPI,SubmitAnswerAPI,CareerPathAPI,DynamictestquestionsAPI,finish_assessment,RecommendedJobsAPI,RecommendedCoursesAPI,FinishAssessmentAPI
+    ProgressMetricsAPI,SubmitAnswerAPI,CareerPathAPI,DynamictestquestionsAPI,finish_assessment,RecommendedJobsAPI,RecommendedCoursesAPI,FinishAssessmentAPI,CareerCategoryListAPIView,RandomCareerQuestionsAPI
 )
 
 urlpatterns = [
@@ -16,4 +16,6 @@ urlpatterns = [
     path('api/techquestions/', DynamictestquestionsAPI.as_view(), name='tech_questions'),
     path("api/finish-assessment-simple/", finish_assessment, name="finish-assessment-simple"),
     path("api/finish-assessment/", FinishAssessmentAPI.as_view(), name="finish-assessment"),
+    path('api/career-categories/', CareerCategoryListAPIView.as_view(), name='career-categories'),
+    path("api/career-questions-random/", RandomCareerQuestionsAPI.as_view(), name="career-questions-random"),
 ]

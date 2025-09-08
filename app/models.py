@@ -86,3 +86,28 @@ class DynamicTechQuestion(models.Model):
     def __str__(self):
         return f"{self.skill} - {self.questiontext[:50]}"
 
+
+
+class CareerCategory(models.Model):
+    code = models.CharField(max_length=5, unique=True) 
+    title = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+
+class CareerQuestion(models.Model):
+    category = models.ForeignKey(CareerCategory, on_delete=models.CASCADE, related_name="questions")
+    text = models.TextField()
+
+    def __str__(self):
+        return f"{self.category.code}{self.id}: {self.text[:50]}"
+
+
+class CareerOption(models.Model):
+    question = models.ForeignKey(CareerQuestion, on_delete=models.CASCADE, related_name="options")
+    text = models.CharField(max_length=255)
+    RoleMapping = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.text} → {self.RoleMapping}"

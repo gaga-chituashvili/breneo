@@ -1,0 +1,230 @@
+[
+  {
+    "model": "app.careercategory",
+    "pk": 4,
+    "fields": {
+      "code": "D",
+      "title": "Learning Style & Motivation"
+    }
+  },
+  {
+    "model": "app.careerquestion",
+    "pk": 16,
+    "fields": {
+      "category": 4,
+      "text": "How do you learn best?"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 61,
+    "fields": {
+      "question": 16,
+      "text": "Hands-on practice",
+      "role_mapping": "Developer / Engineer"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 62,
+    "fields": {
+      "question": 16,
+      "text": "Watching videos only",
+      "role_mapping": "Visual Learner (Designer, Marketer)"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 63,
+    "fields": {
+      "question": 16,
+      "text": "Reading theory only",
+      "role_mapping": "Researcher / Analyst"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 64,
+    "fields": {
+      "question": 16,
+      "text": "Copying others",
+      "role_mapping": "Low fit"
+    }
+  },
+  {
+    "model": "app.careerquestion",
+    "pk": 17,
+    "fields": {
+      "category": 4,
+      "text": "When learning a new skill, what helps most?"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 65,
+    "fields": {
+      "question": 17,
+      "text": "Immediate application",
+      "role_mapping": "Practical Developer / Designer"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 66,
+    "fields": {
+      "question": 17,
+      "text": "Long theory sessions",
+      "role_mapping": "Academic / Researcher"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 67,
+    "fields": {
+      "question": 17,
+      "text": "Avoiding practice",
+      "role_mapping": "Low fit"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 68,
+    "fields": {
+      "question": 17,
+      "text": "Observing only",
+      "role_mapping": "Passive Learner"
+    }
+  },
+  {
+    "model": "app.careerquestion",
+    "pk": 18,
+    "fields": {
+      "category": 4,
+      "text": "How do you stay motivated when tasks are difficult?"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 69,
+    "fields": {
+      "question": 18,
+      "text": "Break tasks into steps",
+      "role_mapping": "Problem Solver (Engineer, PM)"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 70,
+    "fields": {
+      "question": 18,
+      "text": "Ignore them",
+      "role_mapping": "Low fit"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 71,
+    "fields": {
+      "question": 18,
+      "text": "Complain",
+      "role_mapping": "Low fit"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 72,
+    "fields": {
+      "question": 18,
+      "text": "Delay work",
+      "role_mapping": "Low fit"
+    }
+  },
+  {
+    "model": "app.careerquestion",
+    "pk": 19,
+    "fields": {
+      "category": 4,
+      "text": "Which learning approach fits you best?"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 73,
+    "fields": {
+      "question": 19,
+      "text": "Step-by-step guidance",
+      "role_mapping": "Structured Learner (Developer, Analyst)"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 74,
+    "fields": {
+      "question": 19,
+      "text": "Random trial-and-error",
+      "role_mapping": "Creative Role (Designer, Innovator)"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 75,
+    "fields": {
+      "question": 19,
+      "text": "Only observing",
+      "role_mapping": "Visual Learner"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 76,
+    "fields": {
+      "question": 19,
+      "text": "Skipping difficult parts",
+      "role_mapping": "Low fit"
+    }
+  },
+  {
+    "model": "app.careerquestion",
+    "pk": 20,
+    "fields": {
+      "category": 4,
+      "text": "You prefer feedback to:"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 77,
+    "fields": {
+      "question": 20,
+      "text": "Improve & correct mistakes",
+      "role_mapping": "Growth-Oriented Role (Dev, Designer)"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 78,
+    "fields": {
+      "question": 20,
+      "text": "Ignore",
+      "role_mapping": "Low fit"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 79,
+    "fields": {
+      "question": 20,
+      "text": "Compare with others",
+      "role_mapping": "Competitive Role (Sales, Sports)"
+    }
+  },
+  {
+    "model": "app.careeroption",
+    "pk": 80,
+    "fields": {
+      "question": 20,
+      "text": "Only praise",
+      "role_mapping": "Creative Role / Performer"
+    }
+  }
+]

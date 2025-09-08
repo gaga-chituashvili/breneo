@@ -3,12 +3,18 @@ from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill
-from .serializers import QuestionTechSerializer
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory
+from .serializers import QuestionTechSerializer,CareerCategorySerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from rest_framework import generics
+from .models import CareerQuestion
+from .serializers import CareerQuestionSerializer
+
+
 
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -194,7 +200,7 @@ class CareerPathAPI(APIView):
 # ---------------- Questions API ----------------
 
 class DynamictestquestionsAPI(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = []
 
     def get(self, request):
         questions = list(DynamicTechQuestion.objects.filter(isactive=True))
@@ -202,6 +208,12 @@ class DynamictestquestionsAPI(APIView):
         serializer = QuestionTechSerializer(questions, many=True)
         return Response(serializer.data)
 
+
+
+class CareerCategoryListAPIView(generics.ListAPIView):
+    queryset = CareerCategory.objects.all()
+    serializer_class = CareerCategorySerializer
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
 
 # ---------------- AI Next Question Helper ----------------
 def get_next_question_domain(answers, previous_domain):
@@ -238,19 +250,16 @@ class StartAssessmentAPI(APIView):
     permission_classes = []
 
     def post(self, request):
-        user = User.objects.first()
-        if not user:
-            user = User.objects.create(username="demo_user")
+        user = User.objects.first() or User.objects.create(username="demo_user")
+        role_mapping = request.data.get("RoleMapping")
+        num_questions = int(request.data.get("num_questions", 10))
 
-        num_questions = int(request.data.get("num_questions", 5))
-        questions = list(DynamicTechQuestion.objects.filter(isactive=True))
-        if not questions:
-            return Response({"error": "No questions available"}, status=400)
+       
+        questions_qs = DynamicTechQuestion.objects.filter(RoleMapping=role_mapping, isactive=True)
+        if questions_qs.count() < num_questions:
+            questions_qs = DynamicTechQuestion.objects.filter(isactive=True)
 
-        if len(questions) < num_questions:
-            num_questions = len(questions)
-
-        selected_questions = random.sample(questions, num_questions)
+        selected_questions = random.sample(list(questions_qs), min(num_questions, questions_qs.count()))
 
         session = AssessmentSession.objects.create(
             user=user,
@@ -261,8 +270,9 @@ class StartAssessmentAPI(APIView):
                 "option3": q.option3,
                 "option4": q.option4,
                 "correct_option": q.correct_option,
-                "skill": q.skill,
-                "difficulty": q.difficulty
+                "skill": q.skill.strip(),
+                "difficulty": q.difficulty,
+                "RoleMapping": q.RoleMapping
             } for q in selected_questions],
             current_question_index=0,
             answers=[]
@@ -274,9 +284,8 @@ class StartAssessmentAPI(APIView):
             "questions": session.questions
         })
 
-# ---------------- Submit Answer API ----------------
-from .views import get_next_question_domain 
 
+# ---------------- Submit Answer ----------------
 class SubmitAnswerAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -296,53 +305,60 @@ class SubmitAnswerAPI(APIView):
             if not prev_question:
                 return Response({"error": "Question not found in session"}, status=400)
 
-            # ------------------ check correctness ------------------
-            is_correct = False
-            for i in range(1, 9):
-                if answer.strip() == prev_question.get(f"option{i}"):
-                    is_correct = (i == prev_question.get("correct_option"))
-                    break
+            correct_opt_num = prev_question["correct_option"]
+            is_correct = (answer.strip() == prev_question[f"option{correct_opt_num}"].strip())
 
-            # ------------------ save answer ------------------
+            prev_skill = (prev_question.get("skill") or "").strip()
+            prev_role = prev_question.get("RoleMapping")
+            prev_difficulty = prev_question.get("difficulty")
+
+            # Save answer
             session.answers.append({
-                "questiontext": question_text,
+                "text": question_text,
                 "answer": answer,
                 "correct": is_correct,
-                "difficulty": prev_question.get("difficulty"),
-                "skill": prev_question.get("skill"),
-                "RoleMapping": prev_question.get("RoleMapping"),
+                "difficulty": prev_difficulty,
+                "skill": prev_skill,
+                "RoleMapping": prev_role,
             })
 
-            # ------------------ AI logic for next domain ------------------
-            answers_summary = [
-                {"q": a["questiontext"], "ans": a["answer"], "correct": a["correct"]}
-                for a in session.answers
-            ]
-            previous_domain = prev_question.get("RoleMapping")
-            next_domain = get_next_question_domain(answers_summary, previous_domain)
-
-            # ------------------ next difficulty ------------------
+            
             if is_correct:
-                next_difficulty = (
-                    "medium" if prev_question.get("difficulty") == "easy" else
-                    "hard" if prev_question.get("difficulty") == "medium" else None
-                )
+                next_skill = prev_skill
+                next_difficulty = "hard" if prev_difficulty != "hard" else "hard"
             else:
                 next_difficulty = "easy"
+                skills_in_role = list(DynamicTechQuestion.objects.filter(
+                    RoleMapping=prev_role, isactive=True
+                ).values_list("skill", flat=True).distinct())
+                skills_in_role = [s.strip() for s in skills_in_role if s]
+                prev_skill_norm = prev_skill.lower()
+                skills_in_role_norm = [s.lower() for s in skills_in_role]
 
-            # ------------------ next question selection ------------------
-            next_qs = DynamicTechQuestion.objects.filter(
-                RoleMapping=next_domain,
-                difficulty=next_difficulty if next_difficulty else prev_question.get("difficulty"),
+                available_skills = [
+                    skills_in_role[i] for i, s in enumerate(skills_in_role_norm) if s != prev_skill_norm
+                ]
+                next_skill = random.choice(available_skills) if available_skills else prev_skill
+
+            
+            answered_texts = [a["text"] for a in session.answers]
+            next_qs = list(DynamicTechQuestion.objects.filter(
+                RoleMapping=prev_role,
+                skill=next_skill,
+                difficulty=next_difficulty,
                 isactive=True
-            )
+            ).exclude(questiontext__in=answered_texts))
 
-            if not next_qs.exists():
-                next_qs = DynamicTechQuestion.objects.filter(isactive=True)
+            if not next_qs:
+               
+                next_qs = list(DynamicTechQuestion.objects.filter(
+                    RoleMapping=prev_role,
+                    isactive=True
+                ).exclude(questiontext__in=answered_texts))
 
             next_question = None
-            if next_qs.exists():
-                nq = random.choice(list(next_qs))
+            if next_qs:
+                nq = random.choice(next_qs)
                 next_question = {
                     "text": nq.questiontext,
                     "option1": nq.option1,
@@ -350,7 +366,7 @@ class SubmitAnswerAPI(APIView):
                     "option3": nq.option3,
                     "option4": nq.option4,
                     "correct_option": nq.correct_option,
-                    "skill": nq.skill,
+                    "skill": nq.skill.strip(),
                     "difficulty": nq.difficulty,
                     "RoleMapping": nq.RoleMapping,
                 }
@@ -369,6 +385,7 @@ class SubmitAnswerAPI(APIView):
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
+
 
 # ---------------- Progress Metrics ----------------
 class ProgressMetricsAPI(APIView):
@@ -436,11 +453,9 @@ class FinishAssessmentAPI(APIView):
         except AssessmentSession.DoesNotExist:
             return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
 
-       
         skill_scores = {}
-
         for ans in session.answers:
-            question_text = ans.get("questiontext")
+            question_text = ans.get("text")
             user_answer = ans.get("answer")
 
             try:
@@ -448,11 +463,10 @@ class FinishAssessmentAPI(APIView):
             except DynamicTechQuestion.DoesNotExist:
                 continue
 
-            skill_name = question.skill
+            skill_name = question.skill.strip()
             correct_option = question.correct_option
             correct_answer = getattr(question, f"option{correct_option}")
 
-           
             if skill_name not in skill_scores:
                 skill_scores[skill_name] = 0
 
@@ -462,12 +476,11 @@ class FinishAssessmentAPI(APIView):
         
         user = session.user
         for skill_name, points in skill_scores.items():
-            skill, _ = Skill.objects.get_or_create(name=skill_name)
-            user_skill, created = UserSkill.objects.get_or_create(user=user, skill=skill)
+            skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
+            user_skill, created = UserSkill.objects.get_or_create(user=user, skill=skill_obj)
             user_skill.points += points
             user_skill.save()
 
-        
         session.completed = True
         session.save()
 
@@ -480,3 +493,40 @@ class FinishAssessmentAPI(APIView):
             "total_questions": total_questions,
             "score_per_skill": skill_scores,
         })
+
+
+
+class RandomCareerQuestionsAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        try:
+            limit = int(request.query_params.get("limit", 5))
+            all_questions = list(CareerQuestion.objects.all())
+            if not all_questions:
+                return Response({"error": "No questions found"}, status=404)
+
+            questions = random.sample(all_questions, min(limit, len(all_questions)))
+            serializer = CareerQuestionSerializer(questions, many=True)
+            data = serializer.data
+
+            
+            for q_idx, q in enumerate(questions):
+                for o_idx, opt in enumerate(q.options.all()):
+                    data[q_idx]['options'][o_idx]['RoleMapping'] = opt.RoleMapping
+
+            return Response(data, status=200)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+        
+
+def get_top_role(answers):
+    role_counts = {}
+    for a in answers:
+        role = a.get("RoleMapping")
+        if role:
+            role_counts[role] = role_counts.get(role, 0) + 1
+    if not role_counts:
+        return None
+    return max(role_counts, key=role_counts.get)
