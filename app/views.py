@@ -507,7 +507,12 @@ class RandomCareerQuestionsAPI(APIView):
             if not all_questions:
                 return Response({"error": "No questions found"}, status=404)
 
-            questions = random.sample(all_questions, min(limit, len(all_questions)))
+            
+            random.shuffle(all_questions)
+
+            
+            questions = all_questions[:min(limit, len(all_questions))]
+
             serializer = CareerQuestionSerializer(questions, many=True)
             data = serializer.data
 
@@ -519,7 +524,6 @@ class RandomCareerQuestionsAPI(APIView):
             return Response(data, status=200)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
-        
 
 def get_top_role(answers):
     role_counts = {}
