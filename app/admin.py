@@ -3,7 +3,7 @@ from .models import (
     Assessment, AssessmentSession, Badge,
     Job, Skill, UserSkill, Course,
     DynamicTechQuestion,
-    CareerCategory, CareerQuestion, CareerOption
+    CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion
 )
 
 admin.site.register(Assessment)
@@ -44,3 +44,10 @@ class CareerOptionAdmin(admin.ModelAdmin):
     list_display = ('question', 'text', 'RoleMapping')
     search_fields = ('text', 'RoleMapping')
     list_filter = ('RoleMapping',)
+
+
+
+@admin.register(DynamicSoftSkillsQuestion)
+class DynamicSoftSkillsQuestionAdmin(admin.ModelAdmin):
+    list_display = ('questiontext', 'skill', 'RoleMapping', 'difficulty')
+    search_fields = ('questiontext', 'skill', 'RoleMapping')

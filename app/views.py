@@ -3,8 +3,8 @@ from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory
-from .serializers import QuestionTechSerializer,CareerCategorySerializer
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
@@ -207,6 +207,18 @@ class DynamictestquestionsAPI(APIView):
         random.shuffle(questions)
         serializer = QuestionTechSerializer(questions, many=True)
         return Response(serializer.data)
+    
+
+class DynamicSoftSkillsquestionsAPI(APIView):
+    permission_classes = []
+
+    def get(self, request):
+        questions = list(DynamicSoftSkillsQuestion.objects.filter(isactive=True))
+        random.shuffle(questions)
+        serializer = QuestionSoftSkillsSerializer(questions, many=True)
+        return Response(serializer.data)
+
+
 
 
 
