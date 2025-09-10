@@ -132,3 +132,20 @@ class DynamicSoftSkillsQuestion(models.Model):
     
     def __str__(self):
         return f"{self.skill} - {self.questiontext[:50]}"
+    
+
+
+
+class SkillScore(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    skill = models.ForeignKey(Skill, on_delete=models.CASCADE)
+    score = models.FloatField(default=0.0) 
+    threshold = models.FloatField(default=70.0) 
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_strong(self):
+        return self.score >= self.threshold
+
+    def __str__(self):
+        status = "✅ Strong" if self.is_strong() else "❌ Weak"
+        return f"{self.user.username} - {self.skill.name}: {self.score}% ({status})"

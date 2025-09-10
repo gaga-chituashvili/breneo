@@ -3,7 +3,7 @@ from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore
 from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer
 from django.contrib.auth.models import User
 import os, requests, random
@@ -13,6 +13,9 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from rest_framework import generics
 from .models import CareerQuestion
 from .serializers import CareerQuestionSerializer
+import json
+
+
 
 
 
@@ -450,62 +453,123 @@ def finish_assessment(request):
     })
 
 
-
 class FinishAssessmentAPI(APIView):
     authentication_classes = []
     permission_classes = []
 
     def post(self, request):
-        session_id = request.data.get("session_id")
-        if not session_id:
-            return Response({"error": "Missing session_id"}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
-            session = AssessmentSession.objects.get(id=session_id)
-        except AssessmentSession.DoesNotExist:
-            return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        skill_scores = {}
-        for ans in session.answers:
-            question_text = ans.get("text")
-            user_answer = ans.get("answer")
+            session_id = request.data.get("session_id")
+            if not session_id:
+                return Response({"error": "Missing session_id"}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
-                question = DynamicTechQuestion.objects.get(questiontext=question_text)
-            except DynamicTechQuestion.DoesNotExist:
-                continue
+                session = AssessmentSession.objects.get(id=session_id)
+            except AssessmentSession.DoesNotExist:
+                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            skill_name = question.skill.strip()
-            correct_option = question.correct_option
-            correct_answer = getattr(question, f"option{correct_option}")
+            # Load answers safely
+            answers = session.answers or []
+            if isinstance(answers, str):
+                try:
+                    answers = json.loads(answers)
+                except Exception:
+                    answers = []
 
-            if skill_name not in skill_scores:
-                skill_scores[skill_name] = 0
+            skill_scores = {}
+            skill_totals = {}
 
-            if user_answer.strip() == correct_answer.strip():
-                skill_scores[skill_name] += 1
+            for ans in answers:
+                if not isinstance(ans, dict):
+                    continue
+                question_text = (ans.get("text") or "").strip()
+                user_answer = (ans.get("answer") or "").strip()
+                if not question_text or not user_answer:
+                    continue
 
-        
-        user = session.user
-        for skill_name, points in skill_scores.items():
-            skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
-            user_skill, created = UserSkill.objects.get_or_create(user=user, skill=skill_obj)
-            user_skill.points += points
-            user_skill.save()
+                question = DynamicTechQuestion.objects.filter(questiontext__iexact=question_text).first()
+                if not question:
+                    continue
 
-        session.completed = True
-        session.save()
+                skill_name = (question.skill or "").strip()
+                correct_option = getattr(question, "correct_option", None)
+                correct_answer = getattr(question, f"option{correct_option}", "").strip() if correct_option else ""
 
-        total_score = sum(skill_scores.values())
-        total_questions = len(session.answers)
+                skill_scores.setdefault(skill_name, 0)
+                skill_totals.setdefault(skill_name, 0)
 
-        return Response({
-            "message": "Assessment finished successfully",
-            "total_score": total_score,
-            "total_questions": total_questions,
-            "score_per_skill": skill_scores,
-        })
+                skill_totals[skill_name] += 1
+                if user_answer == correct_answer:
+                    skill_scores[skill_name] += 1
 
+            user = session.user
+            results = {}
+            threshold = 70.0
+
+            for skill_name, correct_count in skill_scores.items():
+                total = skill_totals.get(skill_name, 0)
+                if total == 0:
+                    continue
+
+                percentage = round((correct_count / total) * 100, 2)
+
+                skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
+                user_skill, _ = UserSkill.objects.get_or_create(user=user, skill=skill_obj)
+                user_skill.points += correct_count
+                user_skill.save()
+
+                SkillScore.objects.create(
+                    user=user,
+                    skill=skill_obj,
+                    score=percentage,
+                    threshold=threshold
+                )
+
+                if percentage >= threshold:
+                    rec = "✅ Strong"
+                elif percentage >= threshold - 10:
+                    rec = "⚠️ Borderline"
+                else:
+                    rec = "❌ Weak"
+
+                results[skill_name] = {
+                    "score": f"{correct_count}/{total}",
+                    "percentage": f"{percentage}%",
+                    "recommendation": rec
+                }
+
+            # user SkillScore history
+            history_qs = SkillScore.objects.filter(user=user).order_by('-created_at')
+            history = [
+                {
+                    "skill": s.skill.name,
+                    "score": s.score,
+                    "threshold": s.threshold,
+                    "status": "Strong" if s.score >= s.threshold else "Weak",
+                    "created_at": s.created_at
+                } for s in history_qs
+            ]
+
+            total_score = sum(skill_scores.values())
+            total_questions = sum(skill_totals.values())
+            score_per_skill = {skill: data["percentage"] for skill, data in results.items()}
+
+            session.completed = True
+            session.save()
+
+            return Response({
+                "message": "Assessment finished successfully",
+                "total_score": total_score,
+                "total_questions": total_questions,
+                "results": results,
+                "score_per_skill": score_per_skill,
+                "history": history
+            })
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=500)
 
 
 class RandomCareerQuestionsAPI(APIView):
@@ -546,3 +610,7 @@ def get_top_role(answers):
     if not role_counts:
         return None
     return max(role_counts, key=role_counts.get)
+
+
+
+
