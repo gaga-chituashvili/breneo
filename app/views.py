@@ -464,12 +464,13 @@ class FinishAssessmentAPI(APIView):
             if not session_id:
                 return Response({"error": "Missing session_id"}, status=status.HTTP_400_BAD_REQUEST)
 
+            # მიიღეთ session
             try:
                 session = AssessmentSession.objects.get(id=session_id)
             except AssessmentSession.DoesNotExist:
                 return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            # Load answers safely
+            # Load answers
             answers = session.answers or []
             if isinstance(answers, str):
                 try:
@@ -529,7 +530,7 @@ class FinishAssessmentAPI(APIView):
                     threshold=threshold_strong
                 )
 
-                
+                # Recommendation logic
                 if percentage >= threshold_strong:
                     rec = "✅ Strong"
                 elif percentage >= threshold_borderline:
@@ -547,24 +548,43 @@ class FinishAssessmentAPI(APIView):
             total_questions = sum(skill_totals.values())
             score_per_skill = {skill: data["percentage"] for skill, data in results.items()}
 
-            
+            # Mark session completed
             session.completed = True
             session.save()
 
-            
+            # Determine final role based on strongest skill
+            final_role = "N/A"
+            if results:
+                # Case-insensitive comparison
+                strongest_skill = max(
+                    results.items(),
+                    key=lambda item: float(item[1]['percentage'].replace('%', ''))
+                )[0].lower()
+
+                role_mapping = {
+                    "react": "Frontend Developer",
+                    "vue": "Frontend Developer",
+                    "angular": "Frontend Developer",
+                    "ios": "iOS Developer",
+                    "android": "Android Developer",
+                    "react native": "React Native Developer",
+                }
+
+                final_role = role_mapping.get(strongest_skill, "N/A")
+
             return Response({
                 "message": "Assessment finished successfully",
                 "total_score": total_score,
                 "total_questions": total_questions,
                 "results": results or {},
                 "score_per_skill": score_per_skill or {},
+                "final_role": final_role
             })
 
         except Exception as e:
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
-
 
 
 class RandomCareerQuestionsAPI(APIView):
