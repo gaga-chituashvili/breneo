@@ -453,6 +453,7 @@ def finish_assessment(request):
     })
 
 
+
 class FinishAssessmentAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -504,8 +505,10 @@ class FinishAssessmentAPI(APIView):
 
             user = session.user
             results = {}
-            threshold = 70.0
+            threshold_strong = 70.0
+            threshold_borderline = 60.0
 
+            # Calculate per skill
             for skill_name, correct_count in skill_scores.items():
                 total = skill_totals.get(skill_name, 0)
                 if total == 0:
@@ -513,6 +516,7 @@ class FinishAssessmentAPI(APIView):
 
                 percentage = round((correct_count / total) * 100, 2)
 
+                # Save SkillScore
                 skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
                 user_skill, _ = UserSkill.objects.get_or_create(user=user, skill=skill_obj)
                 user_skill.points += correct_count
@@ -522,12 +526,13 @@ class FinishAssessmentAPI(APIView):
                     user=user,
                     skill=skill_obj,
                     score=percentage,
-                    threshold=threshold
+                    threshold=threshold_strong
                 )
 
-                if percentage >= threshold:
+                
+                if percentage >= threshold_strong:
                     rec = "✅ Strong"
-                elif percentage >= threshold - 10:
+                elif percentage >= threshold_borderline:
                     rec = "⚠️ Borderline"
                 else:
                     rec = "❌ Weak"
@@ -538,38 +543,28 @@ class FinishAssessmentAPI(APIView):
                     "recommendation": rec
                 }
 
-            # user SkillScore history
-            history_qs = SkillScore.objects.filter(user=user).order_by('-created_at')
-            history = [
-                {
-                    "skill": s.skill.name,
-                    "score": s.score,
-                    "threshold": s.threshold,
-                    "status": "Strong" if s.score >= s.threshold else "Weak",
-                    "created_at": s.created_at
-                } for s in history_qs
-            ]
-
             total_score = sum(skill_scores.values())
             total_questions = sum(skill_totals.values())
             score_per_skill = {skill: data["percentage"] for skill, data in results.items()}
 
+            
             session.completed = True
             session.save()
 
+            
             return Response({
                 "message": "Assessment finished successfully",
                 "total_score": total_score,
                 "total_questions": total_questions,
-                "results": results,
-                "score_per_skill": score_per_skill,
-                "history": history
+                "results": results or {},
+                "score_per_skill": score_per_skill or {},
             })
 
         except Exception as e:
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
+
 
 
 class RandomCareerQuestionsAPI(APIView):
@@ -600,6 +595,9 @@ class RandomCareerQuestionsAPI(APIView):
             return Response(data, status=200)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
+        
+
+
 
 def get_top_role(answers):
     role_counts = {}
