@@ -509,7 +509,7 @@ class FinishAssessmentAPI(APIView):
             threshold_strong = 70.0
             threshold_borderline = 60.0
 
-            # Calculate per skill
+            # Calculate per skill and update UserSkill & SkillScore
             for skill_name, correct_count in skill_scores.items():
                 total = skill_totals.get(skill_name, 0)
                 if total == 0:
@@ -517,7 +517,6 @@ class FinishAssessmentAPI(APIView):
 
                 percentage = round((correct_count / total) * 100, 2)
 
-                # Save SkillScore
                 skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
                 user_skill, _ = UserSkill.objects.get_or_create(user=user, skill=skill_obj)
                 user_skill.points += correct_count
@@ -530,7 +529,6 @@ class FinishAssessmentAPI(APIView):
                     threshold=threshold_strong
                 )
 
-                # Recommendation logic
                 if percentage >= threshold_strong:
                     rec = "✅ Strong"
                 elif percentage >= threshold_borderline:
@@ -552,25 +550,48 @@ class FinishAssessmentAPI(APIView):
             session.completed = True
             session.save()
 
-            # Determine final role based on strongest skill
+            # Determine final role based on strongest skill (case-insensitive)
+            role_mapping = {
+                "react": "Frontend Developer",
+                "vue": "Frontend Developer",
+                "angular": "Frontend Developer",
+                "javascript": "Frontend Developer",
+                "typescript": "Frontend Developer",
+                "ios": "iOS Developer",
+                "android": "Android Developer",
+                "react native": "React Native Developer",
+                "ui/ux": "UI/UX Designer",
+                "graphic designer": "Graphic Designer",
+                "3d modeler": "3D Modeler",
+                "product designer": "Product Designer",
+                "python": "Backend Developer",
+                "django": "Backend Developer",
+                "flask": "Backend Developer",
+                "node.js": "Backend Developer",
+                "express.js": "Backend Developer",
+                "sql": "Data Analyst",
+                "mongodb": "Data Analyst",
+                "data analyst": "Data Analyst",
+                "content creator": "Content Creator",
+                "video editor": "Content Creator",
+                "copywriter": "Content Creator",
+                "devops": "DevOps Engineer",
+                "aws": "DevOps Engineer",
+                "docker": "DevOps Engineer",
+                "kubernetes": "DevOps Engineer"
+            }
+
             final_role = "N/A"
             if results:
-                # Case-insensitive comparison
+                # Normalize keys to lowercase
+                normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
+                # Get strongest skill, lowercase
                 strongest_skill = max(
                     results.items(),
                     key=lambda item: float(item[1]['percentage'].replace('%', ''))
-                )[0].lower()
-
-                role_mapping = {
-                    "react": "Frontend Developer",
-                    "vue": "Frontend Developer",
-                    "angular": "Frontend Developer",
-                    "ios": "iOS Developer",
-                    "android": "Android Developer",
-                    "react native": "React Native Developer",
-                }
-
-                final_role = role_mapping.get(strongest_skill, "N/A")
+                )[0].strip().lower()
+                # Lookup final role safely
+                final_role = normalized_role_mapping.get(strongest_skill, "N/A")
 
             return Response({
                 "message": "Assessment finished successfully",
