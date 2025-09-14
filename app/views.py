@@ -171,8 +171,33 @@ class CareerPathAPI(APIView):
 
        
         job_title_map = {
-            "Backend Developer": "Python Developer",  
-            "Frontend Developer": "Frontend Developer",
+            "react": "Frontend Developer",
+            "vue": "Frontend Developer",
+            "angular": "Frontend Developer",
+            "javascript": "Frontend Developer",
+            "typescript": "Frontend Developer",
+            "ios": "iOS Developer",
+            "android": "Android Developer",
+             "react native": "React Native Developer",
+            "ui/ux": "UI/UX Designer",
+            "graphic designer": "Graphic Designer",
+            "3d modeler": "3D Modeler",
+            "product designer": "Product Designer",
+            "python": "Backend Developer",
+            "django": "Backend Developer",
+            "flask": "Backend Developer",
+            "node.js": "Backend Developer",
+            "express.js": "Backend Developer",
+            "sql": "Data Analyst",
+            "mongodb": "Data Analyst",
+            "data analyst": "Data Analyst",
+            "content creator": "Content Creator",
+            "video editor": "Content Creator",
+            "copywriter": "Content Creator",
+            "devops": "DevOps Engineer",
+            "aws": "DevOps Engineer",
+            "docker": "DevOps Engineer",
+            "kubernetes": "DevOps Engineer",
             "Data Analyst": "Data Analyst",
         }
         db_job_title = job_title_map.get(predicted_job_title, predicted_job_title)
@@ -454,6 +479,7 @@ def finish_assessment(request):
 
 
 
+
 class FinishAssessmentAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -550,47 +576,64 @@ class FinishAssessmentAPI(APIView):
             session.completed = True
             session.save()
 
-            # Determine final role based on strongest skill (case-insensitive)
-            role_mapping = {
-                "react": "Frontend Developer",
-                "vue": "Frontend Developer",
-                "angular": "Frontend Developer",
-                "javascript": "Frontend Developer",
-                "typescript": "Frontend Developer",
-                "ios": "iOS Developer",
-                "android": "Android Developer",
-                "react native": "React Native Developer",
-                "ui/ux": "UI/UX Designer",
-                "graphic designer": "Graphic Designer",
-                "3d modeler": "3D Modeler",
-                "product designer": "Product Designer",
-                "python": "Backend Developer",
-                "django": "Backend Developer",
-                "flask": "Backend Developer",
-                "node.js": "Backend Developer",
-                "express.js": "Backend Developer",
-                "sql": "Data Analyst",
-                "mongodb": "Data Analyst",
-                "data analyst": "Data Analyst",
-                "content creator": "Content Creator",
-                "video editor": "Content Creator",
-                "copywriter": "Content Creator",
-                "devops": "DevOps Engineer",
-                "aws": "DevOps Engineer",
-                "docker": "DevOps Engineer",
-                "kubernetes": "DevOps Engineer"
-            }
-
+            # ==== ML Prediction ====
             final_role = "N/A"
-            if results:
-                # Normalize keys to lowercase
+            try:
+                all_skills = [
+                    "React.js", "Vue.js", "Angular", "Node.js", "Python", "Django",
+                    "SQL", "iOS", "Android", "React Native", "JavaScript",
+                    "UI/UX", "Product Designer", "Graphic Designer", "3D Modeler", "Content Creator"
+                ]
+                skill_vector = {}
+                user_skills_qs = UserSkill.objects.filter(user=user)
+                for skill_name in all_skills:
+                    us = user_skills_qs.filter(skill__name=skill_name).first()
+                    skill_vector[skill_name] = us.points if us else 0
+
+                clf = joblib.load("app/ml/model.pkl")
+                X = pd.DataFrame([skill_vector])
+                predicted_role = clf.predict(X)[0]
+                final_role = predicted_role
+            except Exception:
+                # თუ ML არ მუშაობს, დარჩეს "N/A"
+                pass
+
+            # ==== Original role mapping fallback (case-insensitive) ====
+            if final_role == "N/A" and results:
+                role_mapping = {
+                    "react": "Frontend Developer",
+                    "vue": "Frontend Developer",
+                    "angular": "Frontend Developer",
+                    "javascript": "Frontend Developer",
+                    "typescript": "Frontend Developer",
+                    "ios": "iOS Developer",
+                    "android": "Android Developer",
+                    "react native": "React Native Developer",
+                    "ui/ux": "UI/UX Designer",
+                    "graphic designer": "Graphic Designer",
+                    "3d modeler": "3D Modeler",
+                    "product designer": "Product Designer",
+                    "python": "Backend Developer",
+                    "django": "Backend Developer",
+                    "flask": "Backend Developer",
+                    "node.js": "Backend Developer",
+                    "express.js": "Backend Developer",
+                    "sql": "Data Analyst",
+                    "mongodb": "Data Analyst",
+                    "data analyst": "Data Analyst",
+                    "content creator": "Content Creator",
+                    "video editor": "Content Creator",
+                    "copywriter": "Content Creator",
+                    "devops": "DevOps Engineer",
+                    "aws": "DevOps Engineer",
+                    "docker": "DevOps Engineer",
+                    "kubernetes": "DevOps Engineer"
+                }
                 normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
-                # Get strongest skill, lowercase
                 strongest_skill = max(
                     results.items(),
                     key=lambda item: float(item[1]['percentage'].replace('%', ''))
                 )[0].strip().lower()
-                # Lookup final role safely
                 final_role = normalized_role_mapping.get(strongest_skill, "N/A")
 
             return Response({
@@ -606,6 +649,7 @@ class FinishAssessmentAPI(APIView):
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
+
 
 
 class RandomCareerQuestionsAPI(APIView):
