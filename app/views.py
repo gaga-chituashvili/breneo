@@ -695,5 +695,245 @@ def get_top_role(answers):
     return max(role_counts, key=role_counts.get)
 
 
+import random
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.contrib.auth.models import User
+from .models import AssessmentSession, DynamicSoftSkillsQuestion
+
+import random
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from app.models import User, DynamicSoftSkillsQuestion, AssessmentSession
 
 
+import random
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from app.models import User, DynamicSoftSkillsQuestion, AssessmentSession
+
+class StartSoftAssessmentAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        try:
+            user = User.objects.first() or User.objects.create(username="demo_user")
+            num_questions = 10
+
+            questions_qs = list(DynamicSoftSkillsQuestion.objects.filter(isactive=True))
+            if not questions_qs:
+                return Response({"error": "No soft skills questions available"}, status=400)
+
+            selected_questions = random.sample(questions_qs, min(num_questions, len(questions_qs)))
+            random.shuffle(selected_questions)
+
+            session = AssessmentSession.objects.create(
+                user=user,
+                questions=[{
+                    "questiontext": q.questiontext,
+                    "option1": q.option1,
+                    "option2": q.option2,
+                    "option3": q.option3,
+                    "option4": q.option4,
+                    "correct_option": q.correct_option,
+                    "skill": q.skill.strip(),
+                    "difficulty": q.difficulty,
+                    "RoleMapping": q.RoleMapping,
+                    "type": "soft"
+                } for q in selected_questions],
+                current_question_index=0,
+                answers=[]
+            )
+
+            first_question = session.questions[0] if session.questions else None
+
+            return Response({
+                "message": "Soft assessment started",
+                "session_id": session.id,
+                "first_question": first_question
+            })
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+        
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from app.models import AssessmentSession
+
+class SubmitSoftAnswerAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        try:
+            session_id = request.data.get("session_id")
+            answer = request.data.get("answer")
+            question_text = request.data.get("question_text")
+
+            if not session_id or not answer or not question_text:
+                return Response({"error": "Missing parameters"}, status=400)
+
+            session = AssessmentSession.objects.get(id=session_id)
+
+            session.answers.append({"question_text": question_text, "answer": answer})
+            session.current_question_index += 1
+            session.save()
+
+            if session.current_question_index >= len(session.questions):
+                total_score = sum(
+                    1 for q, a in zip(session.questions, session.answers)
+                    if a["answer"] == q[f"option{q['correct_option']}"]
+                )
+                total_questions = len(session.questions)
+                session.completed = True
+                session.save()
+
+                return Response({
+                    "message": "Assessment finished",
+                    "total_score": total_score,
+                    "total_questions": total_questions
+                })
+
+            next_question = session.questions[session.current_question_index]
+            return Response({
+                "message": "Answer submitted",
+                "next_question": next_question
+            })
+
+        except AssessmentSession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+        
+
+
+import json
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from app.models import AssessmentSession, DynamicSoftSkillsQuestion, UserSkill, Skill, SkillScore
+
+class FinishSoftAssessmentAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        try:
+            session_id = request.data.get("session_id")
+            if not session_id:
+                return Response({"error": "Missing session_id"}, status=400)
+
+            session = AssessmentSession.objects.get(id=session_id)
+
+            answers = session.answers or []
+            if isinstance(answers, str):
+                try:
+                    answers = json.loads(answers)
+                except Exception:
+                    answers = []
+
+            skill_scores = {}
+            skill_totals = {}
+
+            for ans in answers:
+                if not isinstance(ans, dict):
+                    continue
+                question_text = (ans.get("question_text") or "").strip()
+                user_answer = (ans.get("answer") or "").strip()
+                if not question_text or not user_answer:
+                    continue
+
+                question = DynamicSoftSkillsQuestion.objects.filter(questiontext__iexact=question_text).first()
+                if not question:
+                    continue
+
+                skill_name = (question.skill or "").strip()
+                correct_option = getattr(question, "correct_option", None)
+                correct_answer = getattr(question, f"option{correct_option}", "").strip() if correct_option else ""
+
+                skill_scores.setdefault(skill_name, 0)
+                skill_totals.setdefault(skill_name, 0)
+
+                skill_totals[skill_name] += 1
+                if user_answer == correct_answer:
+                    skill_scores[skill_name] += 1
+
+            user = session.user
+            results = {}
+            threshold_strong = 70.0
+            threshold_borderline = 60.0
+
+            for skill_name, correct_count in skill_scores.items():
+                total = skill_totals.get(skill_name, 0)
+                if total == 0:
+                    continue
+
+                percentage = round((correct_count / total) * 100, 2)
+
+                skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
+                user_skill, _ = UserSkill.objects.get_or_create(user=user, skill=skill_obj)
+                user_skill.points += correct_count
+                user_skill.save()
+
+                SkillScore.objects.create(
+                    user=user,
+                    skill=skill_obj,
+                    score=percentage,
+                    threshold=threshold_strong
+                )
+
+                if percentage >= threshold_strong:
+                    rec = "✅ Strong"
+                elif percentage >= threshold_borderline:
+                    rec = "⚠️ Borderline"
+                else:
+                    rec = "❌ Weak"
+
+                results[skill_name] = {
+                    "score": f"{correct_count}/{total}",
+                    "percentage": f"{percentage}%",
+                    "recommendation": rec
+                }
+
+            total_score = sum(skill_scores.values())
+            total_questions = sum(skill_totals.values())
+            score_per_skill = {skill: data["percentage"] for skill, data in results.items()}
+
+            session.completed = True
+            session.save()
+
+            final_role = "N/A"
+            if results:
+                strongest_skill = max(
+                    results.items(),
+                    key=lambda item: float(item[1]['percentage'].replace('%', ''))
+                )[0].strip().lower()
+                role_mapping = {
+                    "communication": "Team Player",
+                    "teamwork": "Team Player",
+                    "adaptability": "Problem Solver",
+                    "task management": "Efficient Planner",
+                    "time management": "Organized Worker",
+                    "leadership": "Leader / Manager",
+                    "project management": "Project Manager",
+                    "learning ability": "Curious Learner"
+                }
+                normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
+                final_role = normalized_role_mapping.get(strongest_skill, "N/A")
+
+            return Response({
+                "message": "Soft Skills Assessment finished successfully",
+                "total_score": total_score,
+                "total_questions": total_questions,
+                "results": results or {},
+                "score_per_skill": score_per_skill or {},
+                "final_role": final_role
+            })
+
+        except AssessmentSession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=404)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=500)
