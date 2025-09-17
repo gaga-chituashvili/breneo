@@ -12,7 +12,8 @@ class Command(BaseCommand):
         all_skills = [
             "React.js", "Vue.js", "Angular", "Node.js", "Python", "Django",
             "SQL", "iOS", "Android", "React Native", "JavaScript",
-            "UI/UX", "Product Designer", "Graphic Designer", "3D Modeler", "Content Creator"
+            "UI/UX", "Product Designer", "Graphic Designer", "3D Modeler", "Content Creator","Team Player","Team Player","Efficient Planner",
+            "Organized Worker","Leader / Manager","Project Manager","Curious Learner"
         ]
         possible_jobs = [
                 "Frontend Developer",
@@ -26,7 +27,15 @@ class Command(BaseCommand):
                 "3D Modeler",
                 "Content Creator",
                 "Data Analyst",
-                "DevOps Engineer"
+                "DevOps Engineer",
+                "communication",
+                "teamwork",
+                "adaptability",
+                "task management",
+                "time management",
+                "leadership",
+                "project management",
+                "learning ability"
 ]
 
         data = []
