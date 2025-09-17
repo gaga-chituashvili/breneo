@@ -695,22 +695,6 @@ def get_top_role(answers):
     return max(role_counts, key=role_counts.get)
 
 
-import random
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.contrib.auth.models import User
-from .models import AssessmentSession, DynamicSoftSkillsQuestion
-
-import random
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from app.models import User, DynamicSoftSkillsQuestion, AssessmentSession
-
-
-import random
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from app.models import User, DynamicSoftSkillsQuestion, AssessmentSession
 
 class StartSoftAssessmentAPI(APIView):
     authentication_classes = []
@@ -758,10 +742,6 @@ class StartSoftAssessmentAPI(APIView):
             return Response({"error": str(e)}, status=500)
         
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from app.models import AssessmentSession
-
 class SubmitSoftAnswerAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -808,11 +788,6 @@ class SubmitSoftAnswerAPI(APIView):
             return Response({"error": str(e)}, status=500)
         
 
-
-import json
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from app.models import AssessmentSession, DynamicSoftSkillsQuestion, UserSkill, Skill, SkillScore
 
 class FinishSoftAssessmentAPI(APIView):
     authentication_classes = []
