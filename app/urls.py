@@ -5,7 +5,7 @@ from .views import (
     DynamictestquestionsAPI, finish_assessment, RecommendedJobsAPI,
     RecommendedCoursesAPI, FinishAssessmentAPI, CareerCategoryListAPIView,
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
-    StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI
+    StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,SupabaseUserWebhook
 )
 
 urlpatterns = [
@@ -28,4 +28,5 @@ urlpatterns = [
     path("api/soft/start/", StartSoftAssessmentAPI.as_view(), name="start-soft-assessment"),
     path("api/soft/submit/", SubmitSoftAnswerAPI.as_view(), name="submit-soft-answer"),
     path("api/soft/finish/", FinishSoftAssessmentAPI.as_view(), name="finish-soft-assessment"),
+    path("api/supabase-user/", SupabaseUserWebhook.as_view(), name="supabase-user-webhook"),
 ]

@@ -912,3 +912,31 @@ class FinishSoftAssessmentAPI(APIView):
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
+        
+
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class SupabaseUserWebhook(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        data = request.data
+        user_data = data.get("user", {})
+        user_id = user_data.get("id") or user_data.get("user_metadata", {}).get("sub")
+        email   = user_data.get("email") or user_data.get("user_metadata", {}).get("email")
+        full_name = user_data.get("user_metadata", {}).get("full_name", "")
+
+        User.objects.update_or_create(
+            id=user_id,
+            defaults={"email": email, "full_name": full_name}
+        )
+
+        return Response({"ok": True})
