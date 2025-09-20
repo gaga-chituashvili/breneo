@@ -366,7 +366,7 @@ class StartAssessmentAPI(APIView):
 
 # ---------------- Submit Answer ----------------
 class SubmitAnswerAPI(APIView):
-    authentication_classes = [SessionAuthentication]
+    authentication_classes = [SupabaseJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
