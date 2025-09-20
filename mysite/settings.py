@@ -12,8 +12,6 @@ DEBUG=False
 
 
 ALLOWED_HOSTS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
     "127.0.0.1",
     "localhost",
     "breneo.onrender.com",
@@ -50,20 +48,8 @@ MIDDLEWARE = [
 ]
 
 
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = True
 
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "https://breneo.onrender.com"
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "https://breneo.onrender.com"
-]
 
 ROOT_URLCONF = "mysite.urls"
 
@@ -121,10 +107,15 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
+        "rest_framework.permissions.IsAuthenticated"
     ),
     "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticated",
+        "rest_framework.permissions.AllowAny",
     ),
 }
 
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://breneo.onrender.com",
+]
 
