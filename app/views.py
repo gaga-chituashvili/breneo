@@ -28,8 +28,8 @@ def home(request):
 
 # ---------------- Dashboard API ----------------
 class DashboardProgressAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         user = request.user
@@ -82,8 +82,8 @@ class DashboardProgressAPI(APIView):
 
 # ---------------- Recommended Jobs ----------------
 class RecommendedJobsAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         user = request.user
@@ -96,8 +96,8 @@ class RecommendedJobsAPI(APIView):
 
 # ---------------- Recommended Courses API ----------------
 class RecommendedCoursesAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         user = request.user
@@ -134,10 +134,10 @@ def calculate_match(user_skills_qs, job):
 
 
 class CareerPathAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
     def get(self, request):
-        import os, joblib
+
 
        
         user = request.user
@@ -227,8 +227,8 @@ class CareerPathAPI(APIView):
 # ---------------- Questions API ----------------
 
 class DynamictestquestionsAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         questions = list(DynamicTechQuestion.objects.filter(isactive=True))
@@ -238,8 +238,8 @@ class DynamictestquestionsAPI(APIView):
     
 
 class DynamicSoftSkillsquestionsAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         questions = list(DynamicSoftSkillsQuestion.objects.filter(isactive=True))
@@ -254,7 +254,7 @@ class DynamicSoftSkillsquestionsAPI(APIView):
 class CareerCategoryListAPIView(generics.ListAPIView):
     queryset = CareerCategory.objects.all()
     serializer_class = CareerCategorySerializer
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    authentication_classes = []
 
 # ---------------- AI Next Question Helper ----------------
 def get_next_question_domain(answers, previous_domain):
@@ -287,11 +287,11 @@ def get_next_question_domain(answers, previous_domain):
 
 # ---------------- Start Assessment API ----------------
 class StartAssessmentAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
-        user = request.user
+        user = User.objects.first()
         role_mapping = request.data.get("RoleMapping")
         num_questions = int(request.data.get("num_questions", 10))
 
@@ -328,8 +328,8 @@ class StartAssessmentAPI(APIView):
 
 # ---------------- Submit Answer ----------------
 class SubmitAnswerAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         try:
@@ -430,11 +430,11 @@ class SubmitAnswerAPI(APIView):
 
 # ---------------- Progress Metrics ----------------
 class ProgressMetricsAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
-        user = request.user
+        user = User.objects.first()
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
@@ -482,8 +482,8 @@ def finish_assessment(request):
 
 
 class FinishAssessmentAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
     def post(self, request):
         try:
             session_id = request.data.get("session_id")
@@ -653,8 +653,8 @@ class FinishAssessmentAPI(APIView):
 
 
 class RandomCareerQuestionsAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         try:
@@ -697,8 +697,8 @@ def get_top_role(answers):
 
 
 class StartSoftAssessmentAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         try:
@@ -743,8 +743,8 @@ class StartSoftAssessmentAPI(APIView):
         
 
 class SubmitSoftAnswerAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         try:
@@ -790,8 +790,8 @@ class SubmitSoftAnswerAPI(APIView):
 
 
 class FinishSoftAssessmentAPI(APIView):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         try:

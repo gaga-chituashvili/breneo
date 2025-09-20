@@ -12,6 +12,8 @@ DEBUG=False
 
 
 ALLOWED_HOSTS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
     "127.0.0.1",
     "localhost",
     "breneo.onrender.com",
@@ -48,7 +50,7 @@ MIDDLEWARE = [
 ]
 
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 
 ROOT_URLCONF = "mysite.urls"
