@@ -14,7 +14,7 @@ from rest_framework import generics
 from .models import CareerQuestion
 from .serializers import CareerQuestionSerializer
 import json
-from rest_framework_simplejwt.authentication import JWTAuthentication
+
 
 
 
@@ -83,8 +83,8 @@ class DashboardProgressAPI(APIView):
 
 # ---------------- Recommended Jobs ----------------
 class RecommendedJobsAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         user = request.user
@@ -97,8 +97,8 @@ class RecommendedJobsAPI(APIView):
 
 # ---------------- Recommended Courses API ----------------
 class RecommendedCoursesAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         user = User.objects.first()
@@ -135,8 +135,8 @@ def calculate_match(user_skills_qs, job):
 
 
 class CareerPathAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
 
@@ -229,8 +229,8 @@ class CareerPathAPI(APIView):
 # ---------------- Questions API ----------------
 
 class DynamictestquestionsAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         questions = list(DynamicTechQuestion.objects.filter(isactive=True))
@@ -240,8 +240,8 @@ class DynamictestquestionsAPI(APIView):
     
 
 class DynamicSoftSkillsquestionsAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         questions = list(DynamicSoftSkillsQuestion.objects.filter(isactive=True))
@@ -289,8 +289,8 @@ def get_next_question_domain(answers, previous_domain):
 
 # ---------------- Start Assessment API ----------------
 class StartAssessmentAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         user = User.objects.first()
@@ -330,8 +330,8 @@ class StartAssessmentAPI(APIView):
 
 # ---------------- Submit Answer ----------------
 class SubmitAnswerAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
 
     def post(self, request):
@@ -433,8 +433,8 @@ class SubmitAnswerAPI(APIView):
 
 # ---------------- Progress Metrics ----------------
 class ProgressMetricsAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         user = User.objects.first()
@@ -485,8 +485,8 @@ def finish_assessment(request):
 
 
 class FinishAssessmentAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         try:
@@ -657,8 +657,8 @@ class FinishAssessmentAPI(APIView):
 
 
 class RandomCareerQuestionsAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         try:
@@ -701,8 +701,8 @@ def get_top_role(answers):
 
 
 class StartSoftAssessmentAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         try:
@@ -747,8 +747,8 @@ class StartSoftAssessmentAPI(APIView):
         
 
 class SubmitSoftAnswerAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         try:
@@ -794,8 +794,8 @@ class SubmitSoftAnswerAPI(APIView):
 
 
 class FinishSoftAssessmentAPI(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         try:
