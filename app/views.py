@@ -14,6 +14,7 @@ from rest_framework import generics
 from .models import CareerQuestion
 from .serializers import CareerQuestionSerializer
 import json
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 
@@ -32,7 +33,7 @@ class DashboardProgressAPI(APIView):
     permission_classes = []
 
     def get(self, request):
-        user = request.user
+        user = User.objects.first()
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
@@ -82,8 +83,8 @@ class DashboardProgressAPI(APIView):
 
 # ---------------- Recommended Jobs ----------------
 class RecommendedJobsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
@@ -96,11 +97,11 @@ class RecommendedJobsAPI(APIView):
 
 # ---------------- Recommended Courses API ----------------
 class RecommendedCoursesAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
+        user = User.objects.first()
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
@@ -134,13 +135,14 @@ def calculate_match(user_skills_qs, job):
 
 
 class CareerPathAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
 
 
        
-        user = request.user
+        user = User.objects.first()
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
@@ -227,8 +229,8 @@ class CareerPathAPI(APIView):
 # ---------------- Questions API ----------------
 
 class DynamictestquestionsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         questions = list(DynamicTechQuestion.objects.filter(isactive=True))
@@ -238,8 +240,8 @@ class DynamictestquestionsAPI(APIView):
     
 
 class DynamicSoftSkillsquestionsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         questions = list(DynamicSoftSkillsQuestion.objects.filter(isactive=True))
@@ -287,11 +289,11 @@ def get_next_question_domain(answers, previous_domain):
 
 # ---------------- Start Assessment API ----------------
 class StartAssessmentAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        user = request.user
+        user = User.objects.first()
         role_mapping = request.data.get("RoleMapping")
         num_questions = int(request.data.get("num_questions", 10))
 
@@ -328,8 +330,9 @@ class StartAssessmentAPI(APIView):
 
 # ---------------- Submit Answer ----------------
 class SubmitAnswerAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
 
     def post(self, request):
         try:
@@ -430,11 +433,11 @@ class SubmitAnswerAPI(APIView):
 
 # ---------------- Progress Metrics ----------------
 class ProgressMetricsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
+        user = User.objects.first()
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
@@ -482,8 +485,9 @@ def finish_assessment(request):
 
 
 class FinishAssessmentAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         try:
             session_id = request.data.get("session_id")
@@ -653,8 +657,8 @@ class FinishAssessmentAPI(APIView):
 
 
 class RandomCareerQuestionsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         try:
@@ -697,12 +701,12 @@ def get_top_role(answers):
 
 
 class StartSoftAssessmentAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
-            user = request.user
+            user = User.objects.first()
             num_questions = 10
 
             questions_qs = list(DynamicSoftSkillsQuestion.objects.filter(isactive=True))
@@ -743,8 +747,8 @@ class StartSoftAssessmentAPI(APIView):
         
 
 class SubmitSoftAnswerAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
@@ -790,8 +794,8 @@ class SubmitSoftAnswerAPI(APIView):
 
 
 class FinishSoftAssessmentAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
@@ -916,27 +920,4 @@ class FinishSoftAssessmentAPI(APIView):
 
 
 
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
-
-class SupabaseUserWebhook(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        data = request.data
-        user_data = data.get("user", {})
-        user_id = user_data.get("id") or user_data.get("user_metadata", {}).get("sub")
-        email   = user_data.get("email") or user_data.get("user_metadata", {}).get("email")
-        full_name = user_data.get("user_metadata", {}).get("full_name", "")
-
-        User.objects.update_or_create(
-            id=user_id,
-            defaults={"email": email, "full_name": full_name}
-        )
-
-        return Response({"ok": True})
+\
