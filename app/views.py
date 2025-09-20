@@ -918,6 +918,3 @@ class FinishSoftAssessmentAPI(APIView):
             return Response({"error": str(e)}, status=500)
         
 
-
-
-\
