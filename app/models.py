@@ -149,3 +149,38 @@ class SkillScore(models.Model):
     def __str__(self):
         status = "✅ Strong" if self.is_strong() else "❌ Weak"
         return f"{self.user.username} - {self.skill.name}: {self.score}% ({status})"
+    
+
+
+
+class TestResult(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    tech_question = models.ForeignKey('DynamicTechQuestion', null=True, blank=True, on_delete=models.CASCADE)
+    soft_question = models.ForeignKey('DynamicSoftSkillsQuestion', null=True, blank=True, on_delete=models.CASCADE)
+    answer = models.TextField()
+    score = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        question = self.tech_question or self.soft_question
+        question_id = getattr(question, "questionid", "No Question") if question else "No Question"
+        username = self.user.username if self.user else "No User"
+        answer_preview = (self.answer[:30] + "...") if self.answer else "No Answer"
+        return f"{username} - {question_id} - {answer_preview}"
+
+
+
+class AssessmentResult(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    session = models.ForeignKey(AssessmentSession, null=True, blank=True, on_delete=models.SET_NULL)
+    total_score = models.IntegerField(default=0)
+    total_questions = models.IntegerField(default=0)
+    final_role = models.CharField(max_length=100, default="")
+    tech_skills = models.JSONField(default=dict) 
+    soft_skills = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - Score: {self.total_score}/{self.total_questions} - Role: {self.final_role}"

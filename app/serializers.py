@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Assessment, Badge,DynamicTechQuestion,CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion
+from .models import Assessment, Badge,DynamicTechQuestion,CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion,TestResult
 
 class AssessmentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -78,3 +78,13 @@ class QuestionSoftSkillsSerializer(serializers.ModelSerializer):
             "updatedat",
         ]
 
+
+
+
+
+
+class TestResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestResult
+        fields = ['id', 'user', 'tech_question', 'soft_question', 'answer', 'score', 'created_at']
+        read_only_fields = ['id', 'created_at', 'score', 'user']  

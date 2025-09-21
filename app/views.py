@@ -3,7 +3,7 @@ from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,AssessmentResult
 from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer
 from django.contrib.auth.models import User
 import os, requests, random
@@ -14,6 +14,8 @@ from rest_framework import generics
 from .models import CareerQuestion
 from .serializers import CareerQuestionSerializer
 import json
+from .models import TestResult
+from .serializers import TestResultSerializer
 
 
 
@@ -494,7 +496,6 @@ class FinishAssessmentAPI(APIView):
             if not session_id:
                 return Response({"error": "Missing session_id"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # მიიღეთ session
             try:
                 session = AssessmentSession.objects.get(id=session_id)
             except AssessmentSession.DoesNotExist:
@@ -602,7 +603,7 @@ class FinishAssessmentAPI(APIView):
                 # თუ ML არ მუშაობს, დარჩეს "N/A"
                 pass
 
-            # ==== Original role mapping fallback (case-insensitive) ====
+            # ==== Original role mapping fallback ====
             if final_role == "N/A" and results:
                 role_mapping = {
                     "react": "Frontend Developer",
@@ -639,6 +640,20 @@ class FinishAssessmentAPI(APIView):
                     key=lambda item: float(item[1]['percentage'].replace('%', ''))
                 )[0].strip().lower()
                 final_role = normalized_role_mapping.get(strongest_skill, "N/A")
+
+            # ==== Save AssessmentResult ====
+            tech_skills_list = list(results.keys())  # აქ მხოლოდ tech
+            soft_skills_list = []  # Soft assessment ცარიელია
+
+            AssessmentResult.objects.create(
+                user=session.user,
+                session=session,
+                total_score=total_score,
+                total_questions=total_questions,
+                final_role=final_role,
+                tech_skills={k: v for k, v in results.items() if k in tech_skills_list},
+                soft_skills={k: v for k, v in results.items() if k in soft_skills_list},
+            )
 
             return Response({
                 "message": "Assessment finished successfully",
@@ -792,7 +807,6 @@ class SubmitSoftAnswerAPI(APIView):
             return Response({"error": str(e)}, status=500)
         
 
-
 class FinishSoftAssessmentAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -901,6 +915,20 @@ class FinishSoftAssessmentAPI(APIView):
                 normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
                 final_role = normalized_role_mapping.get(strongest_skill, "N/A")
 
+            # ===== Save AssessmentResult =====
+            tech_skills_list = []  # Soft assessment ამიტომ tech_skills ცარიელი იქნება
+            soft_skills_list = list(results.keys())
+
+            AssessmentResult.objects.create(
+                user=session.user,
+                session=session,
+                total_score=total_score,
+                total_questions=total_questions,
+                final_role=final_role,
+                tech_skills={k: v for k, v in results.items() if k in tech_skills_list},
+                soft_skills={k: v for k, v in results.items() if k in soft_skills_list},
+            )
+
             return Response({
                 "message": "Soft Skills Assessment finished successfully",
                 "total_score": total_score,
@@ -916,5 +944,16 @@ class FinishSoftAssessmentAPI(APIView):
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
-        
 
+
+
+
+class SubmitTestResultView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = TestResultSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user = request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
