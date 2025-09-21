@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,AssessmentResult
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,AssessmentResultSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
@@ -957,3 +957,13 @@ class SubmitTestResultView(APIView):
             serializer.save(user = request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+class AssessmentResultListAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        results = AssessmentResult.objects.filter(user=request.user).order_by('-created_at')
+        serializer = AssessmentResultSerializer(results, many=True)
+        return Response(serializer.data)
