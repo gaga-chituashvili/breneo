@@ -148,7 +148,6 @@ class CareerPathAPI(APIView):
         predicted_job_title = None
         if os.path.exists(model_path) and skill_vector:
             try:
-                import pandas as pd
                 clf = joblib.load(model_path)
                 X = pd.DataFrame([skill_vector])
                 predicted_job_title = clf.predict(X)[0]
