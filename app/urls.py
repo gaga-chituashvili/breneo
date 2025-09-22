@@ -5,7 +5,7 @@ from .views import (
     DynamictestquestionsAPI, finish_assessment, RecommendedJobsAPI,
     RecommendedCoursesAPI, FinishAssessmentAPI, CareerCategoryListAPIView,
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
-    StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,SubmitTestResultView,AssessmentResultListAPI
+    StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI
 
 )
 
@@ -29,6 +29,4 @@ urlpatterns = [
     path("api/soft/start/", StartSoftAssessmentAPI.as_view(), name="start-soft-assessment"),
     path("api/soft/submit/", SubmitSoftAnswerAPI.as_view(), name="submit-soft-answer"),
     path("api/soft/finish/", FinishSoftAssessmentAPI.as_view(), name="finish-soft-assessment"),
-    path('submit-test-result/', SubmitTestResultView.as_view(), name='submit-test-result'),
-    path('api/results/', AssessmentResultListAPI.as_view(), name='assessment-results'),
 ]

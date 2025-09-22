@@ -3,8 +3,8 @@ from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,AssessmentResult
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,AssessmentResultSerializer
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
@@ -14,8 +14,6 @@ from rest_framework import generics
 from .models import CareerQuestion
 from .serializers import CareerQuestionSerializer
 import json
-from .models import TestResult
-from .serializers import TestResultSerializer
 
 
 
@@ -641,19 +639,6 @@ class FinishAssessmentAPI(APIView):
                 )[0].strip().lower()
                 final_role = normalized_role_mapping.get(strongest_skill, "N/A")
 
-            # ==== Save AssessmentResult ====
-            tech_skills_list = list(results.keys())  # აქ მხოლოდ tech
-            soft_skills_list = []  # Soft assessment ცარიელია
-
-            AssessmentResult.objects.create(
-                user=session.user,
-                session=session,
-                total_score=total_score,
-                total_questions=total_questions,
-                final_role=final_role,
-                tech_skills={k: v for k, v in results.items() if k in tech_skills_list},
-                soft_skills={k: v for k, v in results.items() if k in soft_skills_list},
-            )
 
             return Response({
                 "message": "Assessment finished successfully",
@@ -915,20 +900,8 @@ class FinishSoftAssessmentAPI(APIView):
                 normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
                 final_role = normalized_role_mapping.get(strongest_skill, "N/A")
 
-            # ===== Save AssessmentResult =====
-            tech_skills_list = []  # Soft assessment ამიტომ tech_skills ცარიელი იქნება
-            soft_skills_list = list(results.keys())
 
-            AssessmentResult.objects.create(
-                user=session.user,
-                session=session,
-                total_score=total_score,
-                total_questions=total_questions,
-                final_role=final_role,
-                tech_skills={k: v for k, v in results.items() if k in tech_skills_list},
-                soft_skills={k: v for k, v in results.items() if k in soft_skills_list},
-            )
-
+           
             return Response({
                 "message": "Soft Skills Assessment finished successfully",
                 "total_score": total_score,
@@ -947,23 +920,3 @@ class FinishSoftAssessmentAPI(APIView):
 
 
 
-
-class SubmitTestResultView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        serializer = TestResultSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(user = request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-
-
-class AssessmentResultListAPI(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        results = AssessmentResult.objects.filter(user=request.user).order_by('-created_at')
-        serializer = AssessmentResultSerializer(results, many=True)
-        return Response(serializer.data)
