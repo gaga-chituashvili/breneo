@@ -14,6 +14,9 @@ from rest_framework import generics
 from .models import CareerQuestion
 from .serializers import CareerQuestionSerializer
 import json
+import json
+import joblib
+import pandas as pd
 
 
 
@@ -455,15 +458,6 @@ def finish_assessment(request):
     })
 
 
-
-
-import json
-import joblib
-import pandas as pd
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import AssessmentSession, DynamicTechQuestion, UserSkill, Skill, SkillScore
 
 class FinishAssessmentAPI(APIView):
     authentication_classes = []
