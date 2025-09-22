@@ -37,36 +37,31 @@ class DashboardProgressAPI(APIView):
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
-        
+        # Assessments & Badges
         assessments = Assessment.objects.filter(user=user)
         badges = Badge.objects.filter(user=user)
         completed_count = assessments.filter(status='completed').count()
         in_progress_count = assessments.filter(status='in_progress').count()
+
+        # Current session
         current_session = AssessmentSession.objects.filter(user=user, completed=False).first()
 
-       
-        user_skills = UserSkill.objects.filter(user=user)
-        skill_summary = {us.skill.name: us.level for us in user_skills}
+        # User skills
+        user_skills_qs = UserSkill.objects.filter(user=user)
+        skill_summary = {us.skill.name: us.points for us in user_skills_qs}
 
-       
-        jobs_data = []
-        for job in Job.objects.all():
-            match = calculate_match(user_skills, job)
-            jobs_data.append(match)
+        # Recommended jobs dynamically
+        jobs_data = [calculate_match(user_skills_qs, job) for job in Job.objects.all()]
 
-       
-        courses_data = []
-        for job_match in jobs_data:
-            missing_skills = job_match.get("missing_skills", [])
-            courses = Course.objects.filter(skills_taught__name__in=missing_skills).values_list("title", flat=True)
-            courses_data.extend(list(courses))
-        courses_data = list(set(courses_data)) 
+        # Recommended courses dynamically
+        courses_set = set()
+        for job_data in jobs_data:
+            missing = job_data.get("missing_skills", [])
+            courses = Course.objects.filter(skills_taught__name__in=missing).values_list("title", flat=True)
+            courses_set.update(courses)
 
         return Response({
-            "user": {
-                "username": user.username,
-                "skills": skill_summary
-            },
+            "user": {"username": user.username, "skills": skill_summary},
             "progress": {
                 "total_assessments": assessments.count(),
                 "completed_assessments": completed_count,
@@ -78,9 +73,8 @@ class DashboardProgressAPI(APIView):
                 "questions_count": len(current_session.questions) if current_session else 0
             },
             "recommended_jobs": jobs_data,
-            "recommended_courses": courses_data
+            "recommended_courses": list(courses_set)
         })
-
 # ---------------- Recommended Jobs ----------------
 class RecommendedJobsAPI(APIView):
     authentication_classes = []
@@ -139,93 +133,72 @@ class CareerPathAPI(APIView):
     permission_classes = []
 
     def get(self, request):
-
-
-       
         user = User.objects.first()
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
-        
+        # Load ML model if exists
         model_path = os.path.join("app", "ml", "model.pkl")
-        if not os.path.exists(model_path):
-            return Response({"error": "ML model not found"}, status=500)
-        model = joblib.load(model_path)
-
-        
         user_skills_qs = UserSkill.objects.filter(user=user)
-        if not user_skills_qs.exists():
-            return Response({"error": "User has no skills"}, status=400)
+        skill_vector = {s.skill.name: s.points for s in user_skills_qs}
 
-       
-        feature_names = model.feature_names_in_
-        skill_vector = [
-            user_skills_qs.filter(skill__name=skill).first().points if user_skills_qs.filter(skill__name=skill).exists() else 0
-            for skill in feature_names
-        ]
+        predicted_job_title = None
+        if os.path.exists(model_path) and skill_vector:
+            try:
+                import pandas as pd
+                clf = joblib.load(model_path)
+                X = pd.DataFrame([skill_vector])
+                predicted_job_title = clf.predict(X)[0]
+            except:
+                predicted_job_title = None
 
-        
+        # fallback based on strongest skill
+        if not predicted_job_title and skill_vector:
+            strongest_skill = max(skill_vector.items(), key=lambda x: x[1])[0].lower()
+            role_mapping = {
+                "react": "Frontend Developer",
+                "vue": "Frontend Developer",
+                "angular": "Frontend Developer",
+                "javascript": "Frontend Developer",
+                "typescript": "Frontend Developer",
+                "ios": "iOS Developer",
+                "android": "Android Developer",
+                "react native": "React Native Developer",
+                "ui/ux": "UI/UX Designer",
+                "graphic designer": "Graphic Designer",
+                "3d modeler": "3D Modeler",
+                "product designer": "Product Designer",
+                "python": "Backend Developer",
+                "django": "Backend Developer",
+                "flask": "Backend Developer",
+                "node.js": "Backend Developer",
+                "express.js": "Backend Developer",
+                "sql": "Data Analyst",
+                "mongodb": "Data Analyst",
+                "data analyst": "Data Analyst",
+                "content creator": "Content Creator"
+            }
+            predicted_job_title = role_mapping.get(strongest_skill, "N/A")
+
         try:
-            predicted_job_title = model.predict([skill_vector])[0]
-        except Exception as e:
-            return Response({"error": f"Prediction failed: {str(e)}"}, status=500)
-
-       
-        job_title_map = {
-            "react": "Frontend Developer",
-            "vue": "Frontend Developer",
-            "angular": "Frontend Developer",
-            "javascript": "Frontend Developer",
-            "typescript": "Frontend Developer",
-            "ios": "iOS Developer",
-            "android": "Android Developer",
-             "react native": "React Native Developer",
-            "ui/ux": "UI/UX Designer",
-            "graphic designer": "Graphic Designer",
-            "3d modeler": "3D Modeler",
-            "product designer": "Product Designer",
-            "python": "Backend Developer",
-            "django": "Backend Developer",
-            "flask": "Backend Developer",
-            "node.js": "Backend Developer",
-            "express.js": "Backend Developer",
-            "sql": "Data Analyst",
-            "mongodb": "Data Analyst",
-            "data analyst": "Data Analyst",
-            "content creator": "Content Creator",
-            "video editor": "Content Creator",
-            "copywriter": "Content Creator",
-            "devops": "DevOps Engineer",
-            "aws": "DevOps Engineer",
-            "docker": "DevOps Engineer",
-            "kubernetes": "DevOps Engineer",
-            "Data Analyst": "Data Analyst",
-        }
-        db_job_title = job_title_map.get(predicted_job_title, predicted_job_title)
-
-       
-        try:
-            recommended_job = Job.objects.get(title=db_job_title)
+            job_obj = Job.objects.get(title=predicted_job_title)
         except Job.DoesNotExist:
-            return Response({"error": f"Job '{db_job_title}' not found in DB"}, status=404)
+            return Response({"error": f"Job '{predicted_job_title}' not found"}, status=404)
 
-       
-        user_skill_names = set(user_skills_qs.values_list("skill__name", flat=True))
-        required_skills = set(recommended_job.required_skills.values_list("name", flat=True))
-        missing_skills = required_skills - user_skill_names
+        user_skills = set(user_skills_qs.values_list("skill__name", flat=True))
+        required_skills = set(job_obj.required_skills.values_list("name", flat=True))
+        missing_skills = required_skills - user_skills
         rec_courses = Course.objects.filter(skills_taught__name__in=missing_skills).values_list("title", flat=True)
 
-        
-        result = {
-            "job_title": recommended_job.title,
-            "description": recommended_job.description,
-            "salary_range": f"${recommended_job.salary_min:,} - ${recommended_job.salary_max:,}",
-            "time_to_ready": recommended_job.time_to_ready,
+        return Response({
+            "job_title": job_obj.title,
+            "description": job_obj.description,
+            "salary_range": f"${job_obj.salary_min:,} - ${job_obj.salary_max:,}",
+            "time_to_ready": job_obj.time_to_ready,
             "missing_skills": list(missing_skills),
             "recommended_courses": list(rec_courses)
-        }
+        })
 
-        return Response(result)
 # ---------------- Questions API ----------------
 
 class DynamictestquestionsAPI(APIView):
@@ -484,6 +457,14 @@ def finish_assessment(request):
 
 
 
+import json
+import joblib
+import pandas as pd
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import AssessmentSession, DynamicTechQuestion, UserSkill, Skill, SkillScore
+
 class FinishAssessmentAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -510,6 +491,7 @@ class FinishAssessmentAPI(APIView):
             skill_scores = {}
             skill_totals = {}
 
+            # Calculate per-skill scores
             for ans in answers:
                 if not isinstance(ans, dict):
                     continue
@@ -528,7 +510,6 @@ class FinishAssessmentAPI(APIView):
 
                 skill_scores.setdefault(skill_name, 0)
                 skill_totals.setdefault(skill_name, 0)
-
                 skill_totals[skill_name] += 1
                 if user_answer == correct_answer:
                     skill_scores[skill_name] += 1
@@ -538,14 +519,13 @@ class FinishAssessmentAPI(APIView):
             threshold_strong = 70.0
             threshold_borderline = 60.0
 
-            # Calculate per skill and update UserSkill & SkillScore
+            # Update UserSkill & SkillScore
             for skill_name, correct_count in skill_scores.items():
                 total = skill_totals.get(skill_name, 0)
                 if total == 0:
                     continue
 
                 percentage = round((correct_count / total) * 100, 2)
-
                 skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
                 user_skill, _ = UserSkill.objects.get_or_create(user=user, skill=skill_obj)
                 user_skill.points += correct_count
@@ -575,34 +555,26 @@ class FinishAssessmentAPI(APIView):
             total_questions = sum(skill_totals.values())
             score_per_skill = {skill: data["percentage"] for skill, data in results.items()}
 
-            # Mark session completed
             session.completed = True
             session.save()
 
             # ==== ML Prediction ====
             final_role = "N/A"
             try:
-                all_skills = [
-                    "React.js", "Vue.js", "Angular", "Node.js", "Python", "Django",
-                    "SQL", "iOS", "Android", "React Native", "JavaScript",
-                    "UI/UX", "Product Designer", "Graphic Designer", "3D Modeler", "Content Creator"
-                ]
-                skill_vector = {}
-                user_skills_qs = UserSkill.objects.filter(user=user)
-                for skill_name in all_skills:
-                    us = user_skills_qs.filter(skill__name=skill_name).first()
-                    skill_vector[skill_name] = us.points if us else 0
+                all_skills = list(UserSkill.objects.filter(user=user).values_list("skill__name", flat=True))
+                skill_vector = {skill: UserSkill.objects.filter(user=user, skill__name=skill).first().points for skill in all_skills}
 
-                clf = joblib.load("app/ml/model.pkl")
-                X = pd.DataFrame([skill_vector])
-                predicted_role = clf.predict(X)[0]
-                final_role = predicted_role
+                if skill_vector:
+                    clf = joblib.load("app/ml/model.pkl")
+                    X = pd.DataFrame([skill_vector])
+                    predicted_role = clf.predict(X)[0]
+                    final_role = predicted_role
             except Exception:
-                # თუ ML არ მუშაობს, დარჩეს "N/A"
                 pass
 
-            # ==== Original role mapping fallback ====
+            # ==== Fallback Role Mapping ====
             if final_role == "N/A" and results:
+                strongest_skill = max(results.items(), key=lambda item: float(item[1]['percentage'].replace('%', '')))[0].strip().lower()
                 role_mapping = {
                     "react": "Frontend Developer",
                     "vue": "Frontend Developer",
@@ -633,19 +605,14 @@ class FinishAssessmentAPI(APIView):
                     "kubernetes": "DevOps Engineer"
                 }
                 normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
-                strongest_skill = max(
-                    results.items(),
-                    key=lambda item: float(item[1]['percentage'].replace('%', ''))
-                )[0].strip().lower()
                 final_role = normalized_role_mapping.get(strongest_skill, "N/A")
-
 
             return Response({
                 "message": "Assessment finished successfully",
                 "total_score": total_score,
                 "total_questions": total_questions,
-                "results": results or {},
-                "score_per_skill": score_per_skill or {},
+                "results": results,
+                "score_per_skill": score_per_skill,
                 "final_role": final_role
             })
 
@@ -653,6 +620,7 @@ class FinishAssessmentAPI(APIView):
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
+
 
 
 
@@ -804,6 +772,7 @@ class FinishSoftAssessmentAPI(APIView):
 
             session = AssessmentSession.objects.get(id=session_id)
 
+            # Load answers safely
             answers = session.answers or []
             if isinstance(answers, str):
                 try:
@@ -842,6 +811,7 @@ class FinishSoftAssessmentAPI(APIView):
             threshold_strong = 70.0
             threshold_borderline = 60.0
 
+            # Update UserSkill & SkillScore dynamically
             for skill_name, correct_count in skill_scores.items():
                 total = skill_totals.get(skill_name, 0)
                 if total == 0:
@@ -878,9 +848,11 @@ class FinishSoftAssessmentAPI(APIView):
             total_questions = sum(skill_totals.values())
             score_per_skill = {skill: data["percentage"] for skill, data in results.items()}
 
+            # Mark session completed
             session.completed = True
             session.save()
 
+            # Determine final role dynamically based on strongest skill
             final_role = "N/A"
             if results:
                 strongest_skill = max(
@@ -900,8 +872,6 @@ class FinishSoftAssessmentAPI(APIView):
                 normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
                 final_role = normalized_role_mapping.get(strongest_skill, "N/A")
 
-
-           
             return Response({
                 "message": "Soft Skills Assessment finished successfully",
                 "total_score": total_score,
@@ -919,4 +889,40 @@ class FinishSoftAssessmentAPI(APIView):
             return Response({"error": str(e)}, status=500)
 
 
+
+class CareerRoadmapAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        user = User.objects.first()  # demo purposes
+        if not user:
+            return Response({"error": "No demo user"}, status=404)
+
+        # -------- User Skills Snapshot --------
+        user_skills_qs = UserSkill.objects.filter(user=user)
+        skill_snapshot = {us.skill.name: us.points for us in user_skills_qs}
+
+        # -------- Career Matches --------
+        jobs_data = []
+        for job in Job.objects.all():
+            match = calculate_match(user_skills_qs, job)
+
+            # Missing skills -> Recommended courses
+            missing_skills = match.get("missing_skills", [])
+            recommended_courses = Course.objects.filter(
+                skills_taught__name__in=missing_skills
+            ).values_list("title", flat=True)
+
+            match["recommended_courses"] = list(set(recommended_courses))
+            jobs_data.append(match)
+
+        # -------- Identify top career (optional) --------
+        top_career = max(jobs_data, key=lambda j: j["match_percentage"]) if jobs_data else None
+
+        return Response({
+            "user_skills": skill_snapshot,
+            "career_matches": jobs_data,
+            "top_career": top_career
+        })
 
