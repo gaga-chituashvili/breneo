@@ -703,6 +703,7 @@ class SubmitSoftAnswerAPI(APIView):
             return Response({"error": str(e)}, status=500)
         
 
+
 class FinishSoftAssessmentAPI(APIView):
     authentication_classes = []
     permission_classes = []
@@ -713,7 +714,10 @@ class FinishSoftAssessmentAPI(APIView):
             if not session_id:
                 return Response({"error": "Missing session_id"}, status=400)
 
-            session = AssessmentSession.objects.get(id=session_id)
+            # Safe get to avoid MultipleObjectsReturned
+            session = AssessmentSession.objects.filter(id=session_id).first()
+            if not session:
+                return Response({"error": "Session not found"}, status=404)
 
             # Load answers safely
             answers = session.answers or []
@@ -734,7 +738,9 @@ class FinishSoftAssessmentAPI(APIView):
                 if not question_text or not user_answer:
                     continue
 
-                question = DynamicSoftSkillsQuestion.objects.filter(questiontext__iexact=question_text).first()
+                question = DynamicSoftSkillsQuestion.objects.filter(
+                    questiontext__iexact=question_text
+                ).first()
                 if not question:
                     continue
 
@@ -798,10 +804,12 @@ class FinishSoftAssessmentAPI(APIView):
             # Determine final role dynamically based on strongest skill
             final_role = "N/A"
             if results:
+                cleaned_results = {k.strip().lower(): v for k, v in results.items()}
                 strongest_skill = max(
-                    results.items(),
+                    cleaned_results.items(),
                     key=lambda item: float(item[1]['percentage'].replace('%', ''))
-                )[0].strip().lower()
+                )[0]
+
                 role_mapping = {
                     "communication": "Team Player",
                     "teamwork": "Team Player",
@@ -810,7 +818,10 @@ class FinishSoftAssessmentAPI(APIView):
                     "time management": "Organized Worker",
                     "leadership": "Leader / Manager",
                     "project management": "Project Manager",
-                    "learning ability": "Curious Learner"
+                    "learning ability": "Curious Learner",
+                    "Time & Task Management": "Efficient Planner",
+                    "Adaptability & Learning": "Proactive Learner",
+                    "Communication & Teamwork": "Team Player",
                 }
                 normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
                 final_role = normalized_role_mapping.get(strongest_skill, "N/A")
@@ -824,13 +835,11 @@ class FinishSoftAssessmentAPI(APIView):
                 "final_role": final_role
             })
 
-        except AssessmentSession.DoesNotExist:
-            return Response({"error": "Session not found"}, status=404)
         except Exception as e:
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
-        
+
 
 
 @api_view(["POST"])
