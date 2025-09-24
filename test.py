@@ -1,22 +1,11 @@
-from rest_framework.test import APIRequestFactory
-from app.views import RecommendedJobsAPI
-from app.models import User, UserSkill, Job
+from app.models import UserSkill
+from django.db.models import Count
 
-# ====== Setup ======
-user = User.objects.first()
-if not user:
-    raise Exception("No demo user in DB")
+duplicates = UserSkill.objects.values('user', 'skill') \
+    .annotate(count_id=Count('id')) \
+    .filter(count_id__gt=1)
 
-# Optional: add some skills for testing
-UserSkill.objects.get_or_create(user=user, skill_id=1, defaults={"points": 5})
-UserSkill.objects.get_or_create(user=user, skill_id=2, defaults={"points": 3})
-
-# ====== API Request ======
-factory = APIRequestFactory()
-request = factory.get('/api/recommended-jobs/')
-
-view = RecommendedJobsAPI.as_view()
-response = view(request)
-
-# ====== შედეგი ======
-print(response.data)
+for dup in duplicates:
+    objs = UserSkill.objects.filter(user_id=dup['user'], skill_id=dup['skill'])
+    first = objs.first()  
+    objs.exclude(id=first.id).delete()  

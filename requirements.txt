@@ -14,3 +14,4 @@ joblib
 scikit-learn
 psycopg2-binary>=2.9
 pandas>=2.0.0
+groq==0.31.1
