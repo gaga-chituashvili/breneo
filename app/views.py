@@ -17,6 +17,7 @@ import json
 import json
 import joblib
 import pandas as pd
+from groq import Groq
 
 
 
@@ -79,19 +80,40 @@ class DashboardProgressAPI(APIView):
             "recommended_courses": list(courses_set)
         })
 # ---------------- Recommended Jobs ----------------
+
 class RecommendedJobsAPI(APIView):
     authentication_classes = []
     permission_classes = []
 
     def get(self, request):
-        user = request.user
-        if not user:
+        user = User.objects.first()
+        if not user or not user.is_authenticated:
             return Response({"error": "No demo user"}, status=404)
 
         user_skills = UserSkill.objects.filter(user=user)
-        jobs_data = [calculate_match(user_skills, job) for job in Job.objects.all()]
-        return Response({"recommended_jobs": jobs_data})
+        jobs_data = []
 
+        for job in Job.objects.all():
+            try:
+                # არსებული match მონაცემები
+                match_data = calculate_match(user_skills, job)
+
+                # --- AI Salary Range დამატება ---
+                try:
+                    ai_salary = fetch_salary_from_groq(job.title, location="Georgia")
+                except Exception:
+                    ai_salary = "$0 - $0"  # fallback, თუ API fail-დას
+
+                match_data["ai_salary_range"] = ai_salary
+                jobs_data.append(match_data)
+
+            except Exception as e:
+                # თუ რომელიმე job-ში მოხდა პრობლემა, ის უბრალოდ გამოტოვე
+                print(f"Error processing job {job.title}: {e}")
+                continue
+
+        return Response({"recommended_jobs": jobs_data})
+    
 # ---------------- Recommended Courses API ----------------
 class RecommendedCoursesAPI(APIView):
     authentication_classes = []
@@ -429,33 +451,6 @@ class ProgressMetricsAPI(APIView):
 
 
 # ---------------- Finish Assessment ----------------
-@api_view(["POST"])
-def finish_assessment(request):
-    session_id = request.data.get("session_id")
-    try:
-        session = AssessmentSession.objects.get(id=session_id)
-    except AssessmentSession.DoesNotExist:
-        return Response({"error": "Session not found"}, status=404)
-
-    score = 0
-    for ans in session.answers:
-        try:
-            q = DynamicTechQuestion.objects.get(questiontext=ans["questiontext"])
-            if q.correct_option and ans["answer"] == getattr(q, f"option{q.correct_option}"):
-                score += 1
-        except DynamicTechQuestion.DoesNotExist:
-            continue
-
-    session.completed = True
-    session.save()
-
-    percentage = round((score / len(session.answers)) * 100, 2) if session.answers else 0
-
-    return Response({
-        "score": f"{score} / {len(session.answers)}",
-        "percentage": percentage
-    })
-
 
 
 class FinishAssessmentAPI(APIView):
@@ -613,51 +608,6 @@ class FinishAssessmentAPI(APIView):
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
-
-
-
-
-class RandomCareerQuestionsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
-
-    def get(self, request):
-        try:
-            limit = int(request.query_params.get("limit", 5))
-            all_questions = list(CareerQuestion.objects.all())
-            if not all_questions:
-                return Response({"error": "No questions found"}, status=404)
-
-            
-            random.shuffle(all_questions)
-
-            
-            questions = all_questions[:min(limit, len(all_questions))]
-
-            serializer = CareerQuestionSerializer(questions, many=True)
-            data = serializer.data
-
-            
-            for q_idx, q in enumerate(questions):
-                for o_idx, opt in enumerate(q.options.all()):
-                    data[q_idx]['options'][o_idx]['RoleMapping'] = opt.RoleMapping
-
-            return Response(data, status=200)
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-        
-
-
-
-def get_top_role(answers):
-    role_counts = {}
-    for a in answers:
-        role = a.get("RoleMapping")
-        if role:
-            role_counts[role] = role_counts.get(role, 0) + 1
-    if not role_counts:
-        return None
-    return max(role_counts, key=role_counts.get)
 
 
 
@@ -880,6 +830,82 @@ class FinishSoftAssessmentAPI(APIView):
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
+        
+
+
+@api_view(["POST"])
+def finish_assessment(request):
+    session_id = request.data.get("session_id")
+    try:
+        session = AssessmentSession.objects.get(id=session_id)
+    except AssessmentSession.DoesNotExist:
+        return Response({"error": "Session not found"}, status=404)
+
+    score = 0
+    for ans in session.answers:
+        try:
+            q = DynamicTechQuestion.objects.get(questiontext=ans["questiontext"])
+            if q.correct_option and ans["answer"] == getattr(q, f"option{q.correct_option}"):
+                score += 1
+        except DynamicTechQuestion.DoesNotExist:
+            continue
+
+    session.completed = True
+    session.save()
+
+    percentage = round((score / len(session.answers)) * 100, 2) if session.answers else 0
+
+    return Response({
+        "score": f"{score} / {len(session.answers)}",
+        "percentage": percentage
+    })
+
+
+
+
+
+class RandomCareerQuestionsAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        try:
+            limit = int(request.query_params.get("limit", 5))
+            all_questions = list(CareerQuestion.objects.all())
+            if not all_questions:
+                return Response({"error": "No questions found"}, status=404)
+
+            
+            random.shuffle(all_questions)
+
+            
+            questions = all_questions[:min(limit, len(all_questions))]
+
+            serializer = CareerQuestionSerializer(questions, many=True)
+            data = serializer.data
+
+            
+            for q_idx, q in enumerate(questions):
+                for o_idx, opt in enumerate(q.options.all()):
+                    data[q_idx]['options'][o_idx]['RoleMapping'] = opt.RoleMapping
+
+            return Response(data, status=200)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+        
+
+
+
+def get_top_role(answers):
+    role_counts = {}
+    for a in answers:
+        role = a.get("RoleMapping")
+        if role:
+            role_counts[role] = role_counts.get(role, 0) + 1
+    if not role_counts:
+        return None
+    return max(role_counts, key=role_counts.get)
+
 
 
 
@@ -918,4 +944,27 @@ class CareerRoadmapAPI(APIView):
             "career_matches": jobs_data,
             "top_career": top_career
         })
+
+
+
+def fetch_salary_from_groq(job_title: str, location: str = "global") -> str:
+    """
+    Ask Groq AI for an estimated salary range for a given job and location.
+    Returns a clean string like '$70,000 - $120,000'
+    """
+    client = Groq(api_key=os.environ["GROQ_API_KEY"])
+    
+    prompt = (
+        f"Provide a realistic yearly salary range in USD "
+        f"for a {job_title} in {location} with mid-level experience. "
+        f"Return ONLY the range like '$70,000 - $120,000'."
+    )
+    
+    chat = client.chat.completions.create(
+        model="llama-3.1-8b-instant", 
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+    )
+    
+    return chat.choices[0].message.content.strip()
 
