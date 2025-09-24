@@ -590,7 +590,18 @@ class FinishAssessmentAPI(APIView):
                     "devops": "DevOps Engineer",
                     "aws": "DevOps Engineer",
                     "docker": "DevOps Engineer",
-                    "kubernetes": "DevOps Engineer"
+                    "kubernetes": "DevOps Engineer",
+                    "communication": "Team Player",
+                    "teamwork": "Team Player",
+                    "adaptability": "Problem Solver",
+                    "task management": "Efficient Planner",
+                    "time management": "Organized Worker",
+                    "leadership": "Leader / Manager",
+                    "project management": "Project Manager",
+                    "learning ability": "Curious Learner",
+                    "Time & Task Management": "Efficient Planner",
+                    "Adaptability & Learning": "Proactive Learner",
+                    "Communication & Teamwork": "Team Player",
                 }
                 normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
                 final_role = normalized_role_mapping.get(strongest_skill, "N/A")
@@ -822,6 +833,33 @@ class FinishSoftAssessmentAPI(APIView):
                     "Time & Task Management": "Efficient Planner",
                     "Adaptability & Learning": "Proactive Learner",
                     "Communication & Teamwork": "Team Player",
+                    "react": "Frontend Developer",
+                    "vue": "Frontend Developer",
+                    "angular": "Frontend Developer",
+                    "javascript": "Frontend Developer",
+                    "typescript": "Frontend Developer",
+                    "ios": "iOS Developer",
+                    "android": "Android Developer",
+                    "react native": "React Native Developer",
+                    "ui/ux": "UI/UX Designer",
+                    "graphic designer": "Graphic Designer",
+                    "3d modeler": "3D Modeler",
+                    "product designer": "Product Designer",
+                    "python": "Backend Developer",
+                    "django": "Backend Developer",
+                    "flask": "Backend Developer",
+                    "node.js": "Backend Developer",
+                    "express.js": "Backend Developer",
+                    "sql": "Data Analyst",
+                    "mongodb": "Data Analyst",
+                    "data analyst": "Data Analyst",
+                    "content creator": "Content Creator",
+                    "video editor": "Content Creator",
+                    "copywriter": "Content Creator",
+                    "devops": "DevOps Engineer",
+                    "aws": "DevOps Engineer",
+                    "docker": "DevOps Engineer",
+                    "kubernetes": "DevOps Engineer"
                 }
                 normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
                 final_role = normalized_role_mapping.get(strongest_skill, "N/A")
