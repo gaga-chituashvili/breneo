@@ -38,6 +38,7 @@ class AssessmentSession(models.Model):
     questions = models.JSONField(default=list)  
     answers = models.JSONField(default=list)   
     completed = models.BooleanField(default=False)
+    final_role = models.CharField(max_length=100, null=True, blank=True)
 
     def __str__(self):
         return f"{self.user.username} - Session {self.id} - Completed: {self.completed}"

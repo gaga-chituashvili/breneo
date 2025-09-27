@@ -90,29 +90,43 @@ class RecommendedJobsAPI(APIView):
         if not user or not user.is_authenticated:
             return Response({"error": "No demo user"}, status=404)
 
+        # 🟢 Get final_role from latest completed session
+        last_session = AssessmentSession.objects.filter(user=user, completed=True).last()
+        final_role = getattr(last_session, 'final_role', None) if last_session else None
+
+        if not final_role:
+            return Response({"error": "No completed assessment or final role found"}, status=400)
+
         user_skills = UserSkill.objects.filter(user=user)
         jobs_data = []
 
-        for job in Job.objects.all():
+        # 🟢 Filter jobs by final_role if any, otherwise fallback to all jobs
+        jobs_qs = Job.objects.filter(role__iexact=final_role)
+        if not jobs_qs.exists():
+            jobs_qs = Job.objects.all()  # fallback to all jobs
+
+        for job in jobs_qs:
             try:
-                # არსებული match მონაცემები
                 match_data = calculate_match(user_skills, job)
 
-                # --- AI Salary Range დამატება ---
+                # 🟢 AI Salary Range
                 try:
                     ai_salary = fetch_salary_from_groq(job.title, location="Georgia")
                 except Exception:
-                    ai_salary = "$0 - $0"  # fallback, თუ API fail-დას
+                    ai_salary = "$0 - $0"
 
                 match_data["ai_salary_range"] = ai_salary
                 jobs_data.append(match_data)
 
             except Exception as e:
-                # თუ რომელიმე job-ში მოხდა პრობლემა, ის უბრალოდ გამოტოვე
                 print(f"Error processing job {job.title}: {e}")
                 continue
 
-        return Response({"recommended_jobs": jobs_data})
+        return Response({
+            "final_role": final_role,
+            "recommended_jobs": jobs_data
+        })
+
     
 # ---------------- Recommended Courses API ----------------
 class RecommendedCoursesAPI(APIView):
