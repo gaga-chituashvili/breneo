@@ -41,44 +41,29 @@ class DashboardProgressAPI(APIView):
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
+        # 🟢 Use saved skill test results
+        results = SkillTestResult.objects.filter(user=user).order_by('-created_at')
+        last_result = results.first()
+
+        skill_summary = last_result.skills_json if last_result else {}
+        final_role = last_result.final_role if last_result else None
+
         # Assessments & Badges
-        assessments = Assessment.objects.filter(user=user)
         badges = Badge.objects.filter(user=user)
-        completed_count = assessments.filter(status='completed').count()
-        in_progress_count = assessments.filter(status='in_progress').count()
-
-        # Current session
-        current_session = AssessmentSession.objects.filter(user=user, completed=False).first()
-
-        # User skills
-        user_skills_qs = UserSkill.objects.filter(user=user)
-        skill_summary = {us.skill.name: us.points for us in user_skills_qs}
-
-        # Recommended jobs dynamically
-        jobs_data = [calculate_match(user_skills_qs, job) for job in Job.objects.all()]
-
-        # Recommended courses dynamically
-        courses_set = set()
-        for job_data in jobs_data:
-            missing = job_data.get("missing_skills", [])
-            courses = Course.objects.filter(skills_taught__name__in=missing).values_list("title", flat=True)
-            courses_set.update(courses)
 
         return Response({
             "user": {"username": user.username, "skills": skill_summary},
             "progress": {
-                "total_assessments": assessments.count(),
-                "completed_assessments": completed_count,
-                "in_progress_assessments": in_progress_count,
+                "total_tests": results.count(),
+                "last_total_score": last_result.total_score if last_result else None,
                 "total_badges": badges.count(),
             },
-            "current_session": {
-                "id": current_session.id if current_session else None,
-                "questions_count": len(current_session.questions) if current_session else 0
-            },
-            "recommended_jobs": jobs_data,
-            "recommended_courses": list(courses_set)
+            "last_result": {
+                "final_role": final_role,
+                "total_score": last_result.total_score if last_result else None,
+            }
         })
+
 # ---------------- Recommended Jobs ----------------
 
 class RecommendedJobsAPI(APIView):
@@ -87,29 +72,34 @@ class RecommendedJobsAPI(APIView):
 
     def get(self, request):
         user = User.objects.first()
-        if not user or not user.is_authenticated:
+        if not user:
             return Response({"error": "No demo user"}, status=404)
 
-        # 🟢 Get final_role from latest completed session
-        last_session = AssessmentSession.objects.filter(user=user, completed=True).last()
-        final_role = getattr(last_session, 'final_role', None) if last_session else None
+        # 🟢 Use last SkillTestResult
+        last_result = SkillTestResult.objects.filter(user=user).order_by('-created_at').first()
+        if not last_result or not last_result.final_role:
+            return Response({"error": "No completed skill test found"}, status=400)
 
-        if not final_role:
-            return Response({"error": "No completed assessment or final role found"}, status=400)
+        final_role = last_result.final_role
+        skills_json = last_result.skills_json
 
-        user_skills = UserSkill.objects.filter(user=user)
+        # Convert skills_json to queryset-like list for calculate_match()
+        user_skills = []
+        for skill_name, status in skills_json.items():
+            skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
+            points = 1 if status.lower() == "strong" else 0
+            user_skills.append(UserSkill(user=user, skill=skill_obj, points=points))
+
         jobs_data = []
-
-        # 🟢 Filter jobs by final_role if any, otherwise fallback to all jobs
         jobs_qs = Job.objects.filter(role__iexact=final_role)
         if not jobs_qs.exists():
-            jobs_qs = Job.objects.all()  # fallback to all jobs
+            jobs_qs = Job.objects.all()
 
         for job in jobs_qs:
             try:
                 match_data = calculate_match(user_skills, job)
 
-                # 🟢 AI Salary Range
+                # AI Salary Range
                 try:
                     ai_salary = fetch_salary_from_groq(job.title, location="Georgia")
                 except Exception:
@@ -1029,3 +1019,44 @@ def fetch_salary_from_groq(job_title: str, location: str = "global") -> str:
     
     return chat.choices[0].message.content.strip()
 
+
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import SkillTestResult
+from .serializers import SkillTestResultSerializer
+
+# Save skill test results
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def save_test_results(request):
+    """
+    API to save skill test results.
+    Expects JSON:
+    {
+        "final_role": "Developer",
+        "obtained_score": 14,
+        "total_questions": 25,
+        "skills_json": { ... }
+    }
+    """
+    data = request.data.copy()
+    # ფორმატირება "14 / 25"
+    obtained = data.get("obtained_score", 0)
+    total = data.get("total_questions", 0)
+    data["total_score"] = f"{obtained} / {total}"
+
+    serializer = SkillTestResultSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save(user=request.user)
+        return Response(serializer.data, status=201)
+    return Response(serializer.errors, status=400)
+# Get logged-in user's skill test results
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_results(request):
+    results = SkillTestResult.objects.filter(user=request.user).order_by('-created_at')
+    serializer = SkillTestResultSerializer(results, many=True)
+    return Response(serializer.data)
