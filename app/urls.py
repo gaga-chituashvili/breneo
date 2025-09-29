@@ -1,12 +1,14 @@
 from django.urls import path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     home, DashboardProgressAPI, StartAssessmentAPI,
     ProgressMetricsAPI, SubmitAnswerAPI, CareerPathAPI,
     DynamictestquestionsAPI, finish_assessment, RecommendedJobsAPI,
     RecommendedCoursesAPI, FinishAssessmentAPI, CareerCategoryListAPIView,
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
-    StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,CareerRoadmapAPI,save_test_results,get_user_results
-
+    StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,
+    CareerRoadmapAPI, save_test_results, get_user_results,
+    RegisterView, ProfileView  
 )
 
 urlpatterns = [
@@ -32,4 +34,10 @@ urlpatterns = [
     path("api/career-roadmap/", CareerRoadmapAPI.as_view(), name="career-roadmap"),
     path('api/skilltest/save/', save_test_results, name='save_test_results'),
     path('api/skilltest/results/', get_user_results, name='get_user_results'),
+
+    # ---------------- Authentication ----------------
+    path("api/register/", RegisterView.as_view(), name="register"),
+    path("api/login/", TokenObtainPairView.as_view(), name="login"),
+    path("api/refresh/", TokenRefreshView.as_view(), name="refresh"),
+    path("api/profile/", ProfileView.as_view(), name="profile"),
 ]
