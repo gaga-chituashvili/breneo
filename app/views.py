@@ -1,15 +1,14 @@
 import joblib
 from django.http import HttpResponse
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
-from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 from .models import CareerQuestion
 from .serializers import CareerQuestionSerializer
@@ -18,9 +17,11 @@ import json
 import joblib
 import pandas as pd
 from groq import Groq
-
-
-
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework import generics, permissions
+from django.contrib.auth.models import User
+from rest_framework.permissions import IsAuthenticated
 
 
 
@@ -33,11 +34,11 @@ def home(request):
 
 # ---------------- Dashboard API ----------------
 class DashboardProgressAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = User.objects.first()
+        user = request.user
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
@@ -67,11 +68,11 @@ class DashboardProgressAPI(APIView):
 # ---------------- Recommended Jobs ----------------
 
 class RecommendedJobsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = User.objects.first()
+        user = request.user
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
@@ -120,11 +121,11 @@ class RecommendedJobsAPI(APIView):
     
 # ---------------- Recommended Courses API ----------------
 class RecommendedCoursesAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = User.objects.first()
+        user = request.user
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
@@ -158,11 +159,11 @@ def calculate_match(user_skills_qs, job):
 
 
 class CareerPathAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = User.objects.first()
+        user = request.user
         if not user:
             return Response({"error": "No demo user"}, status=404)
 
@@ -230,8 +231,8 @@ class CareerPathAPI(APIView):
 # ---------------- Questions API ----------------
 
 class DynamictestquestionsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         questions = list(DynamicTechQuestion.objects.filter(isactive=True))
@@ -241,8 +242,8 @@ class DynamictestquestionsAPI(APIView):
     
 
 class DynamicSoftSkillsquestionsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         questions = list(DynamicSoftSkillsQuestion.objects.filter(isactive=True))
@@ -290,11 +291,11 @@ def get_next_question_domain(answers, previous_domain):
 
 # ---------------- Start Assessment API ----------------
 class StartAssessmentAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        user = User.objects.first()
+        user = request.user
         role_mapping = request.data.get("RoleMapping")
         num_questions = int(request.data.get("num_questions", 10))
 
@@ -331,13 +332,16 @@ class StartAssessmentAPI(APIView):
 
 # ---------------- Submit Answer ----------------
 class SubmitAnswerAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
     def post(self, request):
         try:
             session_id = request.data.get("session_id")
+            if not session_id:
+                return Response({"error": "Missing session_id"}, status=400)
+            session = AssessmentSession.objects.get(id=session_id, user=request.user)
             answer = request.data.get("answer")
             question_text = request.data.get("question_text")
 
@@ -434,8 +438,8 @@ class SubmitAnswerAPI(APIView):
 
 # ---------------- Progress Metrics ----------------
 class ProgressMetricsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = User.objects.first()
@@ -458,19 +462,15 @@ class ProgressMetricsAPI(APIView):
 
 
 class FinishAssessmentAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
             session_id = request.data.get("session_id")
             if not session_id:
-                return Response({"error": "Missing session_id"}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                session = AssessmentSession.objects.get(id=session_id)
-            except AssessmentSession.DoesNotExist:
-                return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": "Missing session_id"}, status=400)
+            session = AssessmentSession.objects.get(id=session_id, user=request.user)
 
             # Load answers
             answers = session.answers or []
@@ -627,12 +627,12 @@ class FinishAssessmentAPI(APIView):
 
 
 class StartSoftAssessmentAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
-            user = User.objects.first()
+            user = request.user
             num_questions = 10
 
             questions_qs = list(DynamicSoftSkillsQuestion.objects.filter(isactive=True))
@@ -673,12 +673,15 @@ class StartSoftAssessmentAPI(APIView):
         
 
 class SubmitSoftAnswerAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
             session_id = request.data.get("session_id")
+            if not session_id:
+                return Response({"error": "Missing session_id"}, status=400)
+            session = AssessmentSession.objects.get(id=session_id, user=request.user)
             answer = request.data.get("answer")
             question_text = request.data.get("question_text")
 
@@ -720,20 +723,15 @@ class SubmitSoftAnswerAPI(APIView):
 
 
 class FinishSoftAssessmentAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
             session_id = request.data.get("session_id")
             if not session_id:
                 return Response({"error": "Missing session_id"}, status=400)
-
-            # Safe get to avoid MultipleObjectsReturned
-            session = AssessmentSession.objects.filter(id=session_id).first()
-            if not session:
-                return Response({"error": "Session not found"}, status=404)
-
+            session = AssessmentSession.objects.get(id=session_id, user=request.user)
             # Load answers safely
             answers = session.answers or []
             if isinstance(answers, str):
@@ -916,8 +914,8 @@ def finish_assessment(request):
 
 
 class RandomCareerQuestionsAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         try:
@@ -961,8 +959,8 @@ def get_top_role(answers):
 
 
 class CareerRoadmapAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = User.objects.first()  # demo purposes
@@ -1022,12 +1020,6 @@ def fetch_salary_from_groq(job_title: str, location: str = "global") -> str:
 
 
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from .models import SkillTestResult
-from .serializers import SkillTestResultSerializer
-
 # Save skill test results
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1064,13 +1056,6 @@ def get_user_results(request):
 
 
 
-from rest_framework import generics, permissions
-from django.contrib.auth.models import User
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     def post(self, request):
@@ -1091,3 +1076,11 @@ class ProfileView(APIView):
             "username": request.user.username,
             "email": request.user.email
         })
+    
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
+
+

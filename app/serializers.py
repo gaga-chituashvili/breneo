@@ -9,6 +9,9 @@ from .models import (
     DynamicSoftSkillsQuestion,
     SkillTestResult,
 )
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth.models import User
 
 # --------------------------
 # Assessment & Badge
@@ -103,3 +106,20 @@ class SkillTestResultSerializer(serializers.ModelSerializer):
         model = SkillTestResult
         fields = ['id', 'user', 'final_role', 'total_score', 'skills_json', 'created_at']
         read_only_fields = ['user', 'created_at']
+
+
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        username_or_email = attrs.get("username")
+        password = attrs.get("password")
+
+        
+        try:
+            user = User.objects.get(email=username_or_email)
+            attrs["username"] = user.username 
+        except User.DoesNotExist:
+            attrs["username"] = username_or_email
+
+        return super().validate(attrs)

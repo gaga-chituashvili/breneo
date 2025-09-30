@@ -8,7 +8,7 @@ from .views import (
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
     StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,
     CareerRoadmapAPI, save_test_results, get_user_results,
-    RegisterView, ProfileView  
+    RegisterView, ProfileView ,CustomTokenObtainPairView 
 )
 
 urlpatterns = [
@@ -37,7 +37,7 @@ urlpatterns = [
 
     # ---------------- Authentication ----------------
     path("api/register/", RegisterView.as_view(), name="register"),
-    path("api/login/", TokenObtainPairView.as_view(), name="login"),
+    path("api/login/", CustomTokenObtainPairView.as_view(), name="login"),
     path("api/refresh/", TokenRefreshView.as_view(), name="refresh"),
     path("api/profile/", ProfileView.as_view(), name="profile"),
 ]
