@@ -8,7 +8,6 @@ from .serializers import QuestionTechSerializer,CareerCategorySerializer,Questio
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework import generics
 from .models import CareerQuestion
 from .serializers import CareerQuestionSerializer
@@ -258,7 +257,7 @@ class DynamicSoftSkillsquestionsAPI(APIView):
 class CareerCategoryListAPIView(generics.ListAPIView):
     queryset = CareerCategory.objects.all()
     serializer_class = CareerCategorySerializer
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication]
 
 # ---------------- AI Next Question Helper ----------------
 def get_next_question_domain(answers, previous_domain):
