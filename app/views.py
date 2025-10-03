@@ -184,28 +184,42 @@ class CareerPathAPI(APIView):
         if not predicted_job_title and skill_vector:
             strongest_skill = max(skill_vector.items(), key=lambda x: x[1])[0].lower()
             role_mapping = {
-                "react": "Frontend Developer",
-                "vue": "Frontend Developer",
-                "angular": "Frontend Developer",
-                "javascript": "Frontend Developer",
-                "typescript": "Frontend Developer",
-                "ios": "iOS Developer",
-                "android": "Android Developer",
-                "react native": "React Native Developer",
-                "ui/ux": "UI/UX Designer",
-                "graphic designer": "Graphic Designer",
-                "3d modeler": "3D Modeler",
-                "product designer": "Product Designer",
-                "python": "Backend Developer",
-                "django": "Backend Developer",
-                "flask": "Backend Developer",
-                "node.js": "Backend Developer",
-                "express.js": "Backend Developer",
-                "sql": "Data Analyst",
-                "mongodb": "Data Analyst",
-                "data analyst": "Data Analyst",
-                "content creator": "Content Creator"
-            }
+                        "communication": "Team Player",
+                        "teamwork": "Team Player",
+                        "adaptability": "Problem Solver",
+                        "task management": "Efficient Planner",
+                        "time management": "Organized Worker",
+                        "leadership": "Leader / Manager",
+                        "project management": "Project Manager",
+                        "learning ability": "Curious Learner",
+                        "react": "Frontend Developer",
+                        "vue": "Frontend Developer",
+                        "angular": "Frontend Developer",
+                        "javascript": "Frontend Developer",
+                        "typescript": "Frontend Developer",
+                        "ios": "iOS Developer",
+                        "android": "Android Developer",
+                        "react native": "React Native Developer",
+                        "ui/ux": "UI/UX Designer",
+                        "graphic designer": "Graphic Designer",
+                        "3d modeler": "3D Modeler",
+                        "product designer": "Product Designer",
+                        "python": "Backend Developer",
+                        "django": "Backend Developer",
+                        "flask": "Backend Developer",
+                        "node.js": "Backend Developer",
+                        "express.js": "Backend Developer",
+                        "sql": "Data Analyst",
+                        "mongodb": "Data Analyst",
+                        "data analyst": "Data Analyst",
+                        "content creator": "Content Creator",
+                        "video editor": "Content Creator",
+                        "copywriter": "Content Creator",
+                        "devops": "DevOps Engineer",
+                        "aws": "DevOps Engineer",
+                        "docker": "DevOps Engineer",
+                        "kubernetes": "DevOps Engineer"
+                    }
             predicted_job_title = role_mapping.get(strongest_skill, "N/A")
 
         try:
@@ -721,6 +735,7 @@ class SubmitSoftAnswerAPI(APIView):
         
 
 
+
 class FinishSoftAssessmentAPI(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -730,30 +745,46 @@ class FinishSoftAssessmentAPI(APIView):
             session_id = request.data.get("session_id")
             if not session_id:
                 return Response({"error": "Missing session_id"}, status=400)
-            session = AssessmentSession.objects.get(id=session_id, user=request.user)
+
+            try:
+                session = AssessmentSession.objects.get(id=session_id, user=request.user)
+            except AssessmentSession.DoesNotExist:
+                return Response({"error": "Session not found"}, status=404)
+
             # Load answers safely
             answers = session.answers or []
             if isinstance(answers, str):
                 try:
                     answers = json.loads(answers)
-                except Exception:
+                except Exception as e:
+                    print("Error parsing answers JSON:", e)
                     answers = []
+
+            print("DEBUG: Loaded answers:", answers)
 
             skill_scores = {}
             skill_totals = {}
+            results = {}
+            threshold_strong = 70.0
+            threshold_borderline = 60.0
 
             for ans in answers:
                 if not isinstance(ans, dict):
+                    print("Skipping invalid answer format:", ans)
                     continue
+
                 question_text = (ans.get("question_text") or "").strip()
                 user_answer = (ans.get("answer") or "").strip()
                 if not question_text or not user_answer:
+                    print("Skipping empty question or answer:", ans)
                     continue
 
                 question = DynamicSoftSkillsQuestion.objects.filter(
                     questiontext__iexact=question_text
                 ).first()
+
                 if not question:
+                    print("Question not found in DB:", question_text)
                     continue
 
                 skill_name = (question.skill or "").strip()
@@ -767,12 +798,8 @@ class FinishSoftAssessmentAPI(APIView):
                 if user_answer == correct_answer:
                     skill_scores[skill_name] += 1
 
+            # Update UserSkill & SkillScore safely
             user = session.user
-            results = {}
-            threshold_strong = 70.0
-            threshold_borderline = 60.0
-
-            # Update UserSkill & SkillScore dynamically
             for skill_name, correct_count in skill_scores.items():
                 total = skill_totals.get(skill_name, 0)
                 if total == 0:
@@ -780,17 +807,22 @@ class FinishSoftAssessmentAPI(APIView):
 
                 percentage = round((correct_count / total) * 100, 2)
 
-                skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
-                user_skill, _ = UserSkill.objects.get_or_create(user=user, skill=skill_obj)
-                user_skill.points += correct_count
-                user_skill.save()
+                try:
+                    skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
+                    user_skill, _ = UserSkill.objects.get_or_create(user=user, skill=skill_obj)
+                    user_skill.points += correct_count
+                    user_skill.save()
 
-                SkillScore.objects.create(
-                    user=user,
-                    skill=skill_obj,
-                    score=percentage,
-                    threshold=threshold_strong
-                )
+                    SkillScore.objects.create(
+                        user=user,
+                        skill=skill_obj,
+                        score=percentage,
+                        threshold=threshold_strong
+                    )
+
+                except Exception as e:
+                    print(f"DB Error for skill {skill_name}: {e}")
+                    continue
 
                 if percentage >= threshold_strong:
                     rec = "✅ Strong"
@@ -813,57 +845,57 @@ class FinishSoftAssessmentAPI(APIView):
             session.completed = True
             session.save()
 
-            # Determine final role dynamically based on strongest skill
+            # Determine final role based on strongest skill
             final_role = "N/A"
             if results:
-                cleaned_results = {k.strip().lower(): v for k, v in results.items()}
-                strongest_skill = max(
-                    cleaned_results.items(),
-                    key=lambda item: float(item[1]['percentage'].replace('%', ''))
-                )[0]
+                try:
+                    cleaned_results = {k.strip().lower(): v for k, v in results.items()}
+                    strongest_skill = max(
+                        cleaned_results.items(),
+                        key=lambda item: float(item[1]['percentage'].replace('%',''))
+                    )[0]
 
-                role_mapping = {
-                    "communication": "Team Player",
-                    "teamwork": "Team Player",
-                    "adaptability": "Problem Solver",
-                    "task management": "Efficient Planner",
-                    "time management": "Organized Worker",
-                    "leadership": "Leader / Manager",
-                    "project management": "Project Manager",
-                    "learning ability": "Curious Learner",
-                    "Time & Task Management": "Efficient Planner",
-                    "Adaptability & Learning": "Proactive Learner",
-                    "Communication & Teamwork": "Team Player",
-                    "react": "Frontend Developer",
-                    "vue": "Frontend Developer",
-                    "angular": "Frontend Developer",
-                    "javascript": "Frontend Developer",
-                    "typescript": "Frontend Developer",
-                    "ios": "iOS Developer",
-                    "android": "Android Developer",
-                    "react native": "React Native Developer",
-                    "ui/ux": "UI/UX Designer",
-                    "graphic designer": "Graphic Designer",
-                    "3d modeler": "3D Modeler",
-                    "product designer": "Product Designer",
-                    "python": "Backend Developer",
-                    "django": "Backend Developer",
-                    "flask": "Backend Developer",
-                    "node.js": "Backend Developer",
-                    "express.js": "Backend Developer",
-                    "sql": "Data Analyst",
-                    "mongodb": "Data Analyst",
-                    "data analyst": "Data Analyst",
-                    "content creator": "Content Creator",
-                    "video editor": "Content Creator",
-                    "copywriter": "Content Creator",
-                    "devops": "DevOps Engineer",
-                    "aws": "DevOps Engineer",
-                    "docker": "DevOps Engineer",
-                    "kubernetes": "DevOps Engineer"
-                }
-                normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
-                final_role = normalized_role_mapping.get(strongest_skill, "N/A")
+                    role_mapping = {
+                        "communication": "Team Player",
+                        "teamwork": "Team Player",
+                        "adaptability": "Problem Solver",
+                        "task management": "Efficient Planner",
+                        "time management": "Organized Worker",
+                        "leadership": "Leader / Manager",
+                        "project management": "Project Manager",
+                        "learning ability": "Curious Learner",
+                        "react": "Frontend Developer",
+                        "vue": "Frontend Developer",
+                        "angular": "Frontend Developer",
+                        "javascript": "Frontend Developer",
+                        "typescript": "Frontend Developer",
+                        "ios": "iOS Developer",
+                        "android": "Android Developer",
+                        "react native": "React Native Developer",
+                        "ui/ux": "UI/UX Designer",
+                        "graphic designer": "Graphic Designer",
+                        "3d modeler": "3D Modeler",
+                        "product designer": "Product Designer",
+                        "python": "Backend Developer",
+                        "django": "Backend Developer",
+                        "flask": "Backend Developer",
+                        "node.js": "Backend Developer",
+                        "express.js": "Backend Developer",
+                        "sql": "Data Analyst",
+                        "mongodb": "Data Analyst",
+                        "data analyst": "Data Analyst",
+                        "content creator": "Content Creator",
+                        "video editor": "Content Creator",
+                        "copywriter": "Content Creator",
+                        "devops": "DevOps Engineer",
+                        "aws": "DevOps Engineer",
+                        "docker": "DevOps Engineer",
+                        "kubernetes": "DevOps Engineer"
+                    }
+                    normalized_role_mapping = {k.lower(): v for k, v in role_mapping.items()}
+                    final_role = normalized_role_mapping.get(strongest_skill, "N/A")
+                except Exception as e:
+                    print("Error computing final role:", e)
 
             return Response({
                 "message": "Soft Skills Assessment finished successfully",
@@ -878,6 +910,7 @@ class FinishSoftAssessmentAPI(APIView):
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)
+
 
 
 
