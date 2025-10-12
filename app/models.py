@@ -163,3 +163,18 @@ class SkillTestResult(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.final_role} ({self.total_score})"
+    
+
+
+
+
+class Academy(models.Model):
+    name = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    website = models.URLField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name

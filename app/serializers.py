@@ -12,6 +12,8 @@ from .models import (
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
+from .models import Academy
+from rest_framework.exceptions import AuthenticationFailed
 
 # --------------------------
 # Assessment & Badge
@@ -109,17 +111,50 @@ class SkillTestResultSerializer(serializers.ModelSerializer):
 
 
 
-
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         username_or_email = attrs.get("username")
         password = attrs.get("password")
 
-        
+        # ჯერ ვცადოთ Django User
+        user = None
         try:
             user = User.objects.get(email=username_or_email)
-            attrs["username"] = user.username 
+            attrs["username"] = user.username
         except User.DoesNotExist:
-            attrs["username"] = username_or_email
+            try:
+                user = User.objects.get(username=username_or_email)
+            except User.DoesNotExist:
+                user = None
 
-        return super().validate(attrs)
+        if user:
+            return super().validate(attrs)
+
+        # თუ User არ მოიძებნა → ვცადოთ Academy
+        try:
+            academy = Academy.objects.get(email=username_or_email)
+            if academy.password == password:
+                # ტოკენისთვის pseudo-user ან custom response
+                return {
+                    "access": "academy-token-placeholder",
+                    "refresh": "academy-refresh-placeholder",
+                    "user_type": "academy",
+                    "name": academy.name,
+                    "email": academy.email,
+                }
+            else:
+                raise AuthenticationFailed("Invalid credentials for academy")
+        except Academy.DoesNotExist:
+            raise AuthenticationFailed("No account found with given credentials.")
+
+
+
+
+class AcademyRegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Academy
+        fields = ["name", "email", "password", "description", "website"]
+        extra_kwargs = {"password": {"write_only": True}}
+
+    def create(self, validated_data):
+        return Academy.objects.create(**validated_data)

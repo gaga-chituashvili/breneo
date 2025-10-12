@@ -4,12 +4,12 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,AcademyRegisterSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
 from rest_framework import generics
-from .models import CareerQuestion
+from .models import CareerQuestion,Academy
 from .serializers import CareerQuestionSerializer
 import json
 import json
@@ -22,6 +22,7 @@ from rest_framework import generics, permissions
 from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers
+
 
 
 
@@ -1129,3 +1130,6 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 
 
+class AcademyRegisterView(generics.CreateAPIView):
+    queryset = Academy.objects.all()
+    serializer_class = AcademyRegisterSerializer
