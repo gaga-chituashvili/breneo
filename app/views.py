@@ -21,7 +21,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import generics, permissions
 from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
-
+from rest_framework import serializers
 
 
 
@@ -1090,8 +1090,19 @@ def get_user_results(request):
 
 
 
+class RegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["username", "email", "password"]
+        extra_kwargs = {"password": {"write_only": True}}
+
+    def create(self, validated_data):
+        return User.objects.create_user(**validated_data)
+
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
+    serializer_class = RegisterSerializer
     def post(self, request):
         username = request.data.get("username")
         email = request.data.get("email")
