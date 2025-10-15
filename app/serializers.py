@@ -154,38 +154,50 @@ class AcademyRegisterSerializer(serializers.ModelSerializer):
 # --------------------------
 # Token Serializer
 # --------------------------
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        email = attrs.get("username") 
+        identifier = attrs.get("username") 
         password = attrs.get("password")
 
-        # Django User
-        user = User.objects.filter(email=email).first()
+        user = None
+
+        # ვცადოთ email-ით პოვნა
+        user = User.objects.filter(email__iexact=identifier).first()
+
+       
+        if not user and " " in identifier:
+            first_name, last_name = identifier.split(" ", 1)
+            user = User.objects.filter(
+                first_name__iexact=first_name.strip(),
+                last_name__iexact=last_name.strip()
+            ).first()
+
+        
         if user and user.check_password(password):
-            attrs["username"] = user.email 
+            attrs["username"] = user.email
             data = super().validate(attrs)
             phone_number = getattr(user.profile, "phone_number", None)
             data.update({
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "email": user.email,
-                "phone_number": phone_number
+                "phone_number": phone_number,
+                "user_type": "user"
             })
             return data
 
-        # Academy
-        academy = Academy.objects.filter(email=email).first()
-        if academy:
-            if check_password(password, academy.password):
-                return {
-                    "access": "academy-access-token-placeholder",
-                    "refresh": "academy-refresh-placeholder",
-                    "user_type": "academy",
-                    "first_name": academy.first_name,
-                    "last_name": academy.last_name,
-                    "email": academy.email,
-                    "phone_number": academy.phone_number,
-                }
-            raise AuthenticationFailed("Invalid credentials for academy")
+       
+        academy = Academy.objects.filter(email__iexact=identifier).first()
+        if academy and check_password(password, academy.password):
+            return {
+                "access": "academy-access-token-placeholder",
+                "refresh": "academy-refresh-placeholder",
+                "user_type": "academy",
+                "name": academy.name,
+                "email": academy.email,
+                "phone_number": academy.phone_number,
+            }
 
-        raise AuthenticationFailed("No account found with given email/password.")
+        
+        raise AuthenticationFailed("Invalid email/full name or password.")
