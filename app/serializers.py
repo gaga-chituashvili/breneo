@@ -111,50 +111,88 @@ class SkillTestResultSerializer(serializers.ModelSerializer):
 
 
 
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    def validate(self, attrs):
-        username_or_email = attrs.get("username")
-        password = attrs.get("password")
-
-        # ჯერ ვცადოთ Django User
-        user = None
-        try:
-            user = User.objects.get(email=username_or_email)
-            attrs["username"] = user.username
-        except User.DoesNotExist:
-            try:
-                user = User.objects.get(username=username_or_email)
-            except User.DoesNotExist:
-                user = None
-
-        if user:
-            return super().validate(attrs)
-
-        # თუ User არ მოიძებნა → ვცადოთ Academy
-        try:
-            academy = Academy.objects.get(email=username_or_email)
-            if academy.password == password:
-                # ტოკენისთვის pseudo-user ან custom response
-                return {
-                    "access": "academy-token-placeholder",
-                    "refresh": "academy-refresh-placeholder",
-                    "user_type": "academy",
-                    "name": academy.name,
-                    "email": academy.email,
-                }
-            else:
-                raise AuthenticationFailed("Invalid credentials for academy")
-        except Academy.DoesNotExist:
-            raise AuthenticationFailed("No account found with given credentials.")
+from rest_framework import serializers
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework.exceptions import AuthenticationFailed
+from .models import Academy
+from django.contrib.auth.hashers import make_password, check_password
+from .models import Academy, UserProfile
 
 
 
+class RegisterSerializer(serializers.ModelSerializer):
+    phone_number = serializers.CharField(write_only=True, required=False)
 
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email", "password", "phone_number"]
+        extra_kwargs = {"password": {"write_only": True}}
+
+    def create(self, validated_data):
+        phone_number = validated_data.pop("phone_number", None)
+        validated_data["password"] = make_password(validated_data["password"])
+        user = User.objects.create_user(
+            username=validated_data["email"],
+            first_name=validated_data["first_name"],
+            last_name=validated_data["last_name"],
+            email=validated_data["email"],
+            password=validated_data["password"]
+        )
+        if phone_number:
+            UserProfile.objects.create(user=user, phone_number=phone_number)
+        return user
+
+
+# --------------------------
+# Academy Registration
+# --------------------------
 class AcademyRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Academy
-        fields = ["name", "email", "password", "description", "website"]
+        fields = ["name", "email", "password", "phone_number", "description", "website"]
         extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data):
         return Academy.objects.create(**validated_data)
+
+
+# --------------------------
+# Token Serializer
+# --------------------------
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        email = attrs.get("username") 
+        password = attrs.get("password")
+
+        # Django User
+        user = User.objects.filter(email=email).first()
+        if user and user.check_password(password):
+            attrs["username"] = user.email 
+            data = super().validate(attrs)
+            phone_number = getattr(user.profile, "phone_number", None)
+            data.update({
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "phone_number": phone_number
+            })
+            return data
+
+        # Academy
+        academy = Academy.objects.filter(email=email).first()
+        if academy:
+            if check_password(password, academy.password):
+                return {
+                    "access": "academy-access-token-placeholder",
+                    "refresh": "academy-refresh-placeholder",
+                    "user_type": "academy",
+                    "first_name": academy.first_name,
+                    "last_name": academy.last_name,
+                    "email": academy.email,
+                    "phone_number": academy.phone_number,
+                }
+            raise AuthenticationFailed("Invalid credentials for academy")
+
+        raise AuthenticationFailed("No account found with given email/password.")

@@ -4,12 +4,12 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,AcademyRegisterSerializer
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,AcademyRegisterSerializer,RegisterSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
 from rest_framework import generics
-from .models import CareerQuestion,Academy
+from .models import CareerQuestion,Academy,UserProfile
 from .serializers import CareerQuestionSerializer
 import json
 import json
@@ -22,7 +22,6 @@ from rest_framework import generics, permissions
 from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers
-
 
 
 
@@ -1090,46 +1089,71 @@ def get_user_results(request):
 
 
 
-
-class RegisterSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ["username", "email", "password"]
-        extra_kwargs = {"password": {"write_only": True}}
-
-    def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
-
-
+# --------------------------
+# User Registration
+# --------------------------
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
+
     def post(self, request):
-        username = request.data.get("username")
+        first_name = request.data.get("first_name")
+        last_name = request.data.get("last_name")
         email = request.data.get("email")
+        phone_number = request.data.get("phone_number")
         password = request.data.get("password")
 
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(email=email).exists():
             return Response({"error": "User already exists"}, status=400)
 
-        user = User.objects.create_user(username=username, email=email, password=password)
+       
+        user = User.objects.create_user(
+            username=first_name,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            password=password
+        )
+
+        
+        if phone_number:
+            UserProfile.objects.create(user=user, phone_number=phone_number)
+
         return Response({"message": "User registered successfully"}, status=201)
 
+
+# --------------------------
+# User Profile
+# --------------------------
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
+        phone_number = getattr(request.user.profile, "phone_number", None)
         return Response({
-            "username": request.user.username,
-            "email": request.user.email
+            "first_name": request.user.first_name,
+            "last_name": request.user.last_name,
+            "email": request.user.email,
+            "phone_number": phone_number
         })
-    
 
 
+# --------------------------
+# Token View
+# --------------------------
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
-
+# --------------------------
+# Academy Registration
+# --------------------------
 class AcademyRegisterView(generics.CreateAPIView):
     queryset = Academy.objects.all()
     serializer_class = AcademyRegisterSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "Academy registered successfully"}, status=201)

@@ -3,7 +3,7 @@ from .models import (
     Assessment, AssessmentSession, Badge,
     Job, Skill, UserSkill, Course,
     DynamicTechQuestion,
-    CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion,SkillScore,Academy
+    CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion,SkillScore,Academy,UserProfile
 )
 admin.site.register(Assessment)
 admin.site.register(Badge)
@@ -11,6 +11,7 @@ admin.site.register(Job)
 admin.site.register(Skill)
 admin.site.register(UserSkill)
 admin.site.register(Course)
+admin.site.register(UserProfile)
 
 
 @admin.register(DynamicTechQuestion)
@@ -63,5 +64,5 @@ class SkillScoreAdmin(admin.ModelAdmin):
 
 @admin.register(Academy)
 class AcademyAdmin(admin.ModelAdmin):
-    list_display = ('name', 'email', 'website', 'created_at')
+    list_display = ('first_name', 'last_name','phone_number','email', 'website', 'created_at')
     search_fields = ('name', 'email')

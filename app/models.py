@@ -169,12 +169,22 @@ class SkillTestResult(models.Model):
 
 
 class Academy(models.Model):
-    name = models.CharField(max_length=255)
+    first_name = models.CharField(max_length=255)
+    last_name = models.CharField(max_length=255, default="N/A")
     email = models.EmailField(unique=True)
+    phone_number = models.CharField(max_length=20, default="N/A") 
     password = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     website = models.URLField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.name
+        return self.first_name
+    
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.username} Profile"
