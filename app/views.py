@@ -1103,12 +1103,16 @@ class RegisterView(generics.CreateAPIView):
         phone_number = request.data.get("phone_number")
         password = request.data.get("password")
 
+    
         if User.objects.filter(email=email).exists():
-            return Response({"error": "User already exists"}, status=400)
+            return Response(
+                {"error": "Email already exists"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-       
+        
         user = User.objects.create_user(
-            username=first_name,
+            username=email,  
             first_name=first_name,
             last_name=last_name,
             email=email,
@@ -1119,7 +1123,11 @@ class RegisterView(generics.CreateAPIView):
         if phone_number:
             UserProfile.objects.create(user=user, phone_number=phone_number)
 
-        return Response({"message": "User registered successfully"}, status=201)
+        return Response(
+            {"message": "User registered successfully"},
+            status=status.HTTP_201_CREATED
+        )
+
 
 
 # --------------------------
@@ -1153,7 +1161,21 @@ class AcademyRegisterView(generics.CreateAPIView):
     serializer_class = AcademyRegisterSerializer
 
     def post(self, request):
+        email = request.data.get("email")
+
+        
+        if Academy.objects.filter(email=email).exists():
+            return Response(
+                {"error": "Email already exists"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response({"message": "Academy registered successfully"}, status=201)
+
+        return Response(
+            {"message": "Academy registered successfully"},
+            status=status.HTTP_201_CREATED
+        )
