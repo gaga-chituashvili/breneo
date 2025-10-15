@@ -64,5 +64,5 @@ class SkillScoreAdmin(admin.ModelAdmin):
 
 @admin.register(Academy)
 class AcademyAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name','phone_number','email', 'website', 'created_at')
+    list_display = ('name', 'email', 'phone_number','password','website', 'created_at')
     search_fields = ('name', 'email')
