@@ -12,8 +12,9 @@ from .models import (
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
-from .models import Academy
+from .models import Academy,UserProfile
 from rest_framework.exceptions import AuthenticationFailed
+from django.contrib.auth.hashers import make_password, check_password
 
 # --------------------------
 # Assessment & Badge
@@ -111,14 +112,6 @@ class SkillTestResultSerializer(serializers.ModelSerializer):
 
 
 
-from rest_framework import serializers
-from django.contrib.auth.models import User
-from django.contrib.auth.hashers import make_password
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework.exceptions import AuthenticationFailed
-from .models import Academy
-from django.contrib.auth.hashers import make_password, check_password
-from .models import Academy, UserProfile
 
 
 
