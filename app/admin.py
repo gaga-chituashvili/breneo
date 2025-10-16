@@ -66,3 +66,6 @@ class SkillScoreAdmin(admin.ModelAdmin):
 class AcademyAdmin(admin.ModelAdmin):
     list_display = ('name', 'email', 'phone_number','password','website', 'created_at')
     search_fields = ('name', 'email')
+
+
+

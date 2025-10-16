@@ -1093,9 +1093,56 @@ def get_user_results(request):
 # --------------------------
 # User Registration
 # --------------------------
+# class RegisterView(generics.CreateAPIView):
+#     queryset = User.objects.all()
+#     serializer_class = RegisterSerializer
+
+#     def post(self, request):
+#         start = time.time()
+#         first_name = request.data.get("first_name")
+#         last_name = request.data.get("last_name")
+#         email = request.data.get("email")
+#         phone_number = request.data.get("phone_number")
+#         password = request.data.get("password")
+
+    
+#         if User.objects.filter(email=email).exists():
+#             return Response(
+#                 {"error": "Email already exists"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+        
+#         user = User.objects.create_user(
+#             username=email,  
+#             first_name=first_name,
+#             last_name=last_name,
+#             email=email,
+#             password=password
+#         )
+
+        
+#         if phone_number:
+#             UserProfile.objects.create(user=user, phone_number=phone_number)
+
+#         duration = round(time.time() - start, 2)
+#         return Response(
+#             {"message": f"User registered successfully in {duration}s"},
+#             status=201
+#         )
+
+
+from django.contrib.auth.models import User
+from rest_framework import generics, status
+from rest_framework.response import Response
+from .models import UserProfile
+from django.core.mail import send_mail
+from django.urls import reverse
+from django.utils.crypto import get_random_string
+import time
+
 class RegisterView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = RegisterSerializer
+    serializer_class = RegisterSerializer  # შენს serializer-ს ვამატებთ
 
     def post(self, request):
         start = time.time()
@@ -1105,47 +1152,87 @@ class RegisterView(generics.CreateAPIView):
         phone_number = request.data.get("phone_number")
         password = request.data.get("password")
 
-    
         if User.objects.filter(email=email).exists():
             return Response(
                 {"error": "Email already exists"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        
+        # მომხმარებლის შექმნა, ჯერ არ არის აქტიური
         user = User.objects.create_user(
-            username=email,  
+            username=email,
             first_name=first_name,
             last_name=last_name,
             email=email,
             password=password
         )
+        user.is_active = False
+        user.save()
 
-        
+        # ტელეფონის შენახვა
         if phone_number:
             UserProfile.objects.create(user=user, phone_number=phone_number)
 
+        # შექმენი activation code
+        activation_code = get_random_string(32)
+        request.session["activation_code"] = activation_code
+        request.session["user_id"] = user.id
+
+        # შექმენი აქტივაციის ლინკი
+        activation_link = request.build_absolute_uri(
+            reverse("activate_account")
+        ) + f"?code={activation_code}"
+
+        # იმეილი მომხმარებელს
+        send_mail(
+            "Activate your account",
+            f"გთხოვთ დაადასტუროთ თქვენი ანგარიში აქ: {activation_link}",
+            request.user.email if request.user.is_authenticated else None,
+            [email],
+            fail_silently=False,
+        )
+
         duration = round(time.time() - start, 2)
         return Response(
-            {"message": f"User registered successfully in {duration}s"},
-            status=201
+            {"message": f"User registered successfully in {duration}s. Please check your email to verify your account."},
+            status=status.HTTP_201_CREATED
         )
 
 
 # --------------------------
 # User Profile
 # --------------------------
+from django.conf import settings
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        phone_number = getattr(request.user.profile, "phone_number", None)
+        profile = getattr(request.user, "profile", None)
+        profile_image_url = None
+        if profile and profile.profile_image:
+            profile_image_url = request.build_absolute_uri(
+                settings.MEDIA_URL + profile.profile_image.name
+            )
+
         return Response({
             "first_name": request.user.first_name,
             "last_name": request.user.last_name,
             "email": request.user.email,
-            "phone_number": phone_number
+            "phone_number": profile.phone_number if profile else None,
+            "profile_image": profile_image_url
         })
+
+    def patch(self, request):
+        profile = getattr(request.user, "profile", None)
+        if not profile:
+            return Response({"error": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if "profile_image" in request.FILES:
+            profile.profile_image = request.FILES["profile_image"]
+            profile.save()
+            return Response({"message": "Profile image updated successfully"}, status=status.HTTP_200_OK)
+
+        return Response({"error": "No image uploaded"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # --------------------------

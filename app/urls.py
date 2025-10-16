@@ -11,6 +11,8 @@ from .views import (
     RegisterView, ProfileView ,CustomTokenObtainPairView,AcademyRegisterView
     
 )
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('', home, name='home'),
@@ -43,3 +45,7 @@ urlpatterns = [
     path("api/profile/", ProfileView.as_view(), name="profile"),
     path("api/academy/register/", AcademyRegisterView.as_view(), name="academy-register"),
 ]
+
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

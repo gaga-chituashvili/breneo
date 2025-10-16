@@ -25,8 +25,10 @@ ALLOWED_HOSTS = [
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -119,3 +121,14 @@ CSRF_TRUSTED_ORIGINS = [
     "https://breneo.onrender.com",
 ]
 
+
+
+
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "gagachituashvili7@gmail.com" 
+EMAIL_HOST_PASSWORD = "zhua bhox mlnr knso"    
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

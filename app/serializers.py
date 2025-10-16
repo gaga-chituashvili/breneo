@@ -157,15 +157,12 @@ class AcademyRegisterSerializer(serializers.ModelSerializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        identifier = attrs.get("username") 
+        identifier = attrs.get("username")
         password = attrs.get("password")
 
         user = None
-
-        # ვცადოთ email-ით პოვნა
         user = User.objects.filter(email__iexact=identifier).first()
 
-       
         if not user and " " in identifier:
             first_name, last_name = identifier.split(" ", 1)
             user = User.objects.filter(
@@ -173,21 +170,23 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 last_name__iexact=last_name.strip()
             ).first()
 
-        
         if user and user.check_password(password):
             attrs["username"] = user.email
             data = super().validate(attrs)
-            phone_number = getattr(user.profile, "phone_number", None)
+            profile = getattr(user, "profile", None)
+            phone_number = getattr(profile, "phone_number", None)
+            profile_image_url = profile.profile_image.url if profile and profile.profile_image else None
+
             data.update({
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "email": user.email,
                 "phone_number": phone_number,
+                "profile_image": profile_image_url,
                 "user_type": "user"
             })
             return data
 
-       
         academy = Academy.objects.filter(email__iexact=identifier).first()
         if academy and check_password(password, academy.password):
             return {
@@ -197,7 +196,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "name": academy.name,
                 "email": academy.email,
                 "phone_number": academy.phone_number,
+                "profile_image": getattr(academy, "profile_image", None)  
             }
 
-        
         raise AuthenticationFailed("Invalid email/full name or password.")
