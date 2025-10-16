@@ -22,6 +22,7 @@ from rest_framework import generics, permissions
 from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers
+import time
 
 
 
@@ -1097,6 +1098,7 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
     def post(self, request):
+        start = time.time()
         first_name = request.data.get("first_name")
         last_name = request.data.get("last_name")
         email = request.data.get("email")
@@ -1123,11 +1125,11 @@ class RegisterView(generics.CreateAPIView):
         if phone_number:
             UserProfile.objects.create(user=user, phone_number=phone_number)
 
+        duration = round(time.time() - start, 2)
         return Response(
-            {"message": "User registered successfully"},
-            status=status.HTTP_201_CREATED
+            {"message": f"User registered successfully in {duration}s"},
+            status=201
         )
-
 
 
 # --------------------------
