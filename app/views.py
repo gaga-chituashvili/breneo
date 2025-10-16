@@ -1093,56 +1093,9 @@ def get_user_results(request):
 # --------------------------
 # User Registration
 # --------------------------
-# class RegisterView(generics.CreateAPIView):
-#     queryset = User.objects.all()
-#     serializer_class = RegisterSerializer
-
-#     def post(self, request):
-#         start = time.time()
-#         first_name = request.data.get("first_name")
-#         last_name = request.data.get("last_name")
-#         email = request.data.get("email")
-#         phone_number = request.data.get("phone_number")
-#         password = request.data.get("password")
-
-    
-#         if User.objects.filter(email=email).exists():
-#             return Response(
-#                 {"error": "Email already exists"},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-        
-#         user = User.objects.create_user(
-#             username=email,  
-#             first_name=first_name,
-#             last_name=last_name,
-#             email=email,
-#             password=password
-#         )
-
-        
-#         if phone_number:
-#             UserProfile.objects.create(user=user, phone_number=phone_number)
-
-#         duration = round(time.time() - start, 2)
-#         return Response(
-#             {"message": f"User registered successfully in {duration}s"},
-#             status=201
-#         )
-
-
-from django.contrib.auth.models import User
-from rest_framework import generics, status
-from rest_framework.response import Response
-from .models import UserProfile
-from django.core.mail import send_mail
-from django.urls import reverse
-from django.utils.crypto import get_random_string
-import time
-
 class RegisterView(generics.CreateAPIView):
-    serializer_class = RegisterSerializer  # შენს serializer-ს ვამატებთ
+    queryset = User.objects.all()
+    serializer_class = RegisterSerializer
 
     def post(self, request):
         start = time.time()
@@ -1152,50 +1105,30 @@ class RegisterView(generics.CreateAPIView):
         phone_number = request.data.get("phone_number")
         password = request.data.get("password")
 
+    
         if User.objects.filter(email=email).exists():
             return Response(
                 {"error": "Email already exists"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # მომხმარებლის შექმნა, ჯერ არ არის აქტიური
+        
         user = User.objects.create_user(
-            username=email,
+            username=email,  
             first_name=first_name,
             last_name=last_name,
             email=email,
             password=password
         )
-        user.is_active = False
-        user.save()
 
-        # ტელეფონის შენახვა
+        
         if phone_number:
             UserProfile.objects.create(user=user, phone_number=phone_number)
 
-        # შექმენი activation code
-        activation_code = get_random_string(32)
-        request.session["activation_code"] = activation_code
-        request.session["user_id"] = user.id
-
-        # შექმენი აქტივაციის ლინკი
-        activation_link = request.build_absolute_uri(
-            reverse("activate_account")
-        ) + f"?code={activation_code}"
-
-        # იმეილი მომხმარებელს
-        send_mail(
-            "Activate your account",
-            f"გთხოვთ დაადასტუროთ თქვენი ანგარიში აქ: {activation_link}",
-            request.user.email if request.user.is_authenticated else None,
-            [email],
-            fail_silently=False,
-        )
-
         duration = round(time.time() - start, 2)
         return Response(
-            {"message": f"User registered successfully in {duration}s. Please check your email to verify your account."},
-            status=status.HTTP_201_CREATED
+            {"message": f"User registered successfully in {duration}s"},
+            status=201
         )
 
 
