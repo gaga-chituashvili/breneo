@@ -23,6 +23,8 @@ from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers
 import time
+from .utils import send_verification_email,confirm_verification_token
+
 
 
 
@@ -1105,32 +1107,48 @@ class RegisterView(generics.CreateAPIView):
         phone_number = request.data.get("phone_number")
         password = request.data.get("password")
 
-    
         if User.objects.filter(email=email).exists():
-            return Response(
-                {"error": "Email already exists"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Email already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-        
         user = User.objects.create_user(
-            username=email,  
+            username=email,
             first_name=first_name,
             last_name=last_name,
             email=email,
             password=password
         )
 
-        
         if phone_number:
             UserProfile.objects.create(user=user, phone_number=phone_number)
 
+        
+        send_verification_email(user)
+
         duration = round(time.time() - start, 2)
         return Response(
-            {"message": f"User registered successfully in {duration}s"},
+            {"message": f"User registered successfully in {duration}s. Please verify your email."},
             status=201
         )
 
+
+
+class VerifyEmailView(APIView):
+    def get(self, request):
+        token = request.GET.get("token")
+        email = confirm_verification_token(token)
+
+        if not email:
+            return Response({"error": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        profile.is_verified = True
+        profile.save()
+
+        return Response({"message": "Email verified successfully!"}, status=status.HTTP_200_OK)
 
 # --------------------------
 # User Profile
