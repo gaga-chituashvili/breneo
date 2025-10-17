@@ -26,8 +26,6 @@ import time
 from .utils import send_verification_email,confirm_verification_token
 
 
-
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # ---------------- Home ----------------
@@ -1095,6 +1093,7 @@ def get_user_results(request):
 # --------------------------
 # User Registration
 # --------------------------
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
@@ -1121,15 +1120,13 @@ class RegisterView(generics.CreateAPIView):
         if phone_number:
             UserProfile.objects.create(user=user, phone_number=phone_number)
 
-        
         send_verification_email(user)
 
         duration = round(time.time() - start, 2)
         return Response(
             {"message": f"User registered successfully in {duration}s. Please verify your email."},
-            status=201
+            status=status.HTTP_201_CREATED
         )
-
 
 
 class VerifyEmailView(APIView):
@@ -1221,7 +1218,6 @@ class AcademyRegisterView(generics.CreateAPIView):
             {"message": "Academy registered successfully. Verification email sent."},
             status=status.HTTP_201_CREATED
         )
-    
 
 
 class AcademyEmailVerifyView(APIView):

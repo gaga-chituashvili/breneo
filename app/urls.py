@@ -45,7 +45,7 @@ urlpatterns = [
     path("api/profile/", ProfileView.as_view(), name="profile"),
     path("api/academy/register/", AcademyRegisterView.as_view(), name="academy-register"),
     path("api/verify-email/", VerifyEmailView.as_view(), name="verify-email"),
-    path('api/verify-academy-email/', AcademyEmailVerifyView.as_view(), name='verify-academy-email'),
+    path('api/verify-academy-email/', AcademyEmailVerifyView.as_view(),name='verify-academy-email'),
 ]
 
 
