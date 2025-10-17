@@ -15,10 +15,22 @@ def confirm_verification_token(token, max_age=3600):
         return None
     return email
 
-def send_verification_email(user):
-    token = generate_verification_token(user.email)
-    verify_url = f"https://breneo.onrender.com//api/verify-email/?token={token}"
+def send_verification_email(obj, academy=False):
+    """
+    obj: User ან Academy ობიექტი
+    academy: თუ True, მაშინ Academy ვაფიქსირებთ
+    """
+    token = generate_verification_token(obj.email)
+
+    if academy:
+        verify_url = f"https://breneo.onrender.com/api/verify-academy-email/?token={token}"
+        name = getattr(obj, 'name', obj.email)  
+    else:
+        verify_url = f"https://breneo.onrender.com/api/verify-email/?token={token}"
+        name = getattr(obj, 'first_name', obj.email) 
 
     subject = "Verify your email"
-    message = f"Hi {user.first_name},\n\nPlease verify your email by clicking the link below:\n{verify_url}\n\nThank you!"
-    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+    message = f"Hi {name},\n\nPlease verify your email by clicking the link below:\n{verify_url}\n\nThank you!"
+    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [obj.email])
+
+

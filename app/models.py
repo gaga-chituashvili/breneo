@@ -176,6 +176,7 @@ class Academy(models.Model):
     description = models.TextField(default="No description provided")
     website = models.URLField(blank=True, null=True) 
     created_at = models.DateTimeField(auto_now_add=True) 
+    is_verified = models.BooleanField(default=False)
 
 
 

@@ -17,3 +17,4 @@ pandas>=2.0.0
 groq==0.31.1
 Pillow>=10.0.0
 itsdangerous>=2.1.2
+python-decouple==3.8

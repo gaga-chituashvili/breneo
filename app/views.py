@@ -1196,6 +1196,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 # --------------------------
 # Academy Registration
 # --------------------------
+
+
 class AcademyRegisterView(generics.CreateAPIView):
     queryset = Academy.objects.all()
     serializer_class = AcademyRegisterSerializer
@@ -1203,19 +1205,37 @@ class AcademyRegisterView(generics.CreateAPIView):
     def post(self, request):
         email = request.data.get("email")
 
-        
         if Academy.objects.filter(email=email).exists():
             return Response(
                 {"error": "Email already exists"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        academy = serializer.save()
+
+        send_verification_email(academy, academy=True)
 
         return Response(
-            {"message": "Academy registered successfully"},
+            {"message": "Academy registered successfully. Verification email sent."},
             status=status.HTTP_201_CREATED
         )
+    
+
+
+class AcademyEmailVerifyView(APIView):
+    def get(self, request, *args, **kwargs):
+        token = request.GET.get("token")
+        email = confirm_verification_token(token)
+
+        if not email:
+            return Response({"error": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            academy = Academy.objects.get(email=email)
+            academy.is_verified = True
+            academy.save()
+            return Response({"message": "Email verified successfully"}, status=status.HTTP_200_OK)
+        except Academy.DoesNotExist:
+            return Response({"error": "Academy not found"}, status=status.HTTP_404_NOT_FOUND)
