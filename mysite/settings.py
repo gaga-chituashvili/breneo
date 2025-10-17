@@ -132,6 +132,9 @@ CSRF_TRUSTED_ORIGINS = [
 # DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
+
+
+
 from decouple import config
 
 EMAIL_BACKEND = config("EMAIL_BACKEND")
