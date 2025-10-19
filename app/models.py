@@ -210,8 +210,8 @@ class TemporaryUser(models.Model):
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-    verification_code = models.CharField(max_length=6)
-    code_expires_at = models.DateTimeField()
+    verification_code = models.CharField(max_length=6, blank=True, null=True)
+    code_expires_at = models.DateTimeField(blank=True, null=True)   
 
     def generate_verification_code(self):
         code = str(random.randint(100000, 999999))
