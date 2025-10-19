@@ -12,7 +12,7 @@ from .models import (
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
-from .models import Academy,UserProfile
+from .models import Academy,UserProfile, TemporaryUser
 from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth.hashers import make_password, check_password
 
@@ -115,28 +115,26 @@ class SkillTestResultSerializer(serializers.ModelSerializer):
 
 
 
+
 class RegisterSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(write_only=True, required=False)
 
     class Meta:
-        model = User
+        model = TemporaryUser 
         fields = ["first_name", "last_name", "email", "password", "phone_number"]
         extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data):
-        phone_number = validated_data.pop("phone_number", None)
+        # პაროლი hash-ით
         validated_data["password"] = make_password(validated_data["password"])
-        user = User.objects.create_user(
-            username=validated_data["email"],
-            first_name=validated_data["first_name"],
-            last_name=validated_data["last_name"],
-            email=validated_data["email"],
-            password=validated_data["password"]
-        )
-        if phone_number:
-            UserProfile.objects.create(user=user, phone_number=phone_number)
-        return user
 
+        # დროებითი ობიექტის შექმნა
+        temp_user = TemporaryUser.objects.create(**validated_data)
+
+        # 6-ნიშნა კოდის გენერაცია
+        temp_user.generate_verification_code()
+
+        return temp_user
 
 # --------------------------
 # Academy Registration

@@ -8,7 +8,7 @@ from .views import (
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
     StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,
     CareerRoadmapAPI, save_test_results, get_user_results,
-    RegisterView, ProfileView ,CustomTokenObtainPairView,AcademyRegisterView,VerifyEmailView,AcademyEmailVerifyView
+    RegisterView, ProfileView ,CustomTokenObtainPairView,AcademyRegisterView,AcademyEmailVerifyView,VerifyCodeView
     
 )
 from django.conf import settings
@@ -44,7 +44,7 @@ urlpatterns = [
     path("api/refresh/", TokenRefreshView.as_view(), name="refresh"),
     path("api/profile/", ProfileView.as_view(), name="profile"),
     path("api/academy/register/", AcademyRegisterView.as_view(), name="academy-register"),
-    path("api/verify-email/", VerifyEmailView.as_view(), name="verify-email"),
+    path("api/verify-code/", VerifyCodeView.as_view(), name="verify-code"),
     path('api/verify-academy-email/', AcademyEmailVerifyView.as_view(),name='verify-academy-email'),
 ]
 

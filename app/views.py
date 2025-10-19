@@ -1095,61 +1095,95 @@ def get_user_results(request):
 # --------------------------
 # User Registration
 # --------------------------
-class RegisterView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = RegisterSerializer
 
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils import timezone
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
+from .models import TemporaryUser, UserProfile
+from .serializers import RegisterSerializer
+
+# ---------------------------
+# Step 1: Register - მხოლოდ კოდის გაგზავნა
+# ---------------------------
+class RegisterView(APIView):
     def post(self, request):
-        start = time.time()
-        first_name = request.data.get("first_name")
-        last_name = request.data.get("last_name")
-        email = request.data.get("email")
-        phone_number = request.data.get("phone_number")
-        password = request.data.get("password")
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
 
-        if User.objects.filter(email=email).exists():
+        # უკვე არსებობს Check
+        if User.objects.filter(email=data['email']).exists() or TemporaryUser.objects.filter(email=data['email']).exists():
             return Response({"error": "Email already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = User.objects.create_user(
-            username=email,
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            password=password
+        # შექმნა TemporaryUser
+        temp_user = TemporaryUser(
+            first_name=data['first_name'],
+            last_name=data['last_name'],
+            email=data['email'],
+            password=make_password(data['password']),
+            phone_number=data.get('phone_number', '')
+        )
+        temp_user.generate_verification_code()
+        temp_user.save()
+
+        # Gmail-ზე კოდის გაგზავნა
+        send_mail(
+            "Your Verification Code",
+            f"Your verification_code is: {temp_user.verification_code}",
+            settings.DEFAULT_FROM_EMAIL,
+            [temp_user.email],
+            fail_silently=False
         )
 
-        if phone_number:
-            UserProfile.objects.create(user=user, phone_number=phone_number)
+        return Response({"message": "Verification code sent to your email."}, status=status.HTTP_200_OK)
+
+
+class VerifyCodeView(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        code = request.data.get("code")
+
+        try:
+            temp_user = TemporaryUser.objects.get(email=email)
+        except TemporaryUser.DoesNotExist:
+            return Response({"error": "Temporary user not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # კოდის ვალიდაცია
+        if temp_user.verification_code != code:
+            return Response({"error": "Invalid verification code"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if temp_user.code_expires_at < timezone.now():
+            temp_user.delete()
+            return Response({"error": "Verification code expired"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # User-ის შექმნა ბაზაში
+        user = User.objects.create(
+            username=temp_user.email,
+            first_name=temp_user.first_name,
+            last_name=temp_user.last_name,
+            email=temp_user.email,
+            password=temp_user.password
+        )
+
+        # UserProfile შექმნა
+        UserProfile.objects.create(
+            user=user,
+            phone_number=temp_user.phone_number
+        )
+
+        # დროებითი ობიექტის წაშლა
+        temp_user.delete()
+
+        return Response({"message": "User registered successfully!"}, status=status.HTTP_201_CREATED)
 
         
-        send_verification_email(user)
-
-        duration = round(time.time() - start, 2)
-        return Response(
-            {"message": f"User registered successfully in {duration}s. Please verify your email."},
-            status=201
-        )
-
-
-
-class VerifyEmailView(APIView):
-    def get(self, request):
-        token = request.GET.get("token")
-        email = confirm_verification_token(token)
-
-        if not email:
-            return Response({"error": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
-
-        user = User.objects.filter(email=email).first()
-        if not user:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        profile, created = UserProfile.objects.get_or_create(user=user)
-        profile.is_verified = True
-        profile.save()
-
-        return Response({"message": "Email verified successfully!"}, status=status.HTTP_200_OK)
-
+        
 # --------------------------
 # User Profile
 # --------------------------
