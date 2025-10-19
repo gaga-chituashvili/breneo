@@ -8,7 +8,7 @@ from .views import (
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
     StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,
     CareerRoadmapAPI, save_test_results, get_user_results,
-    RegisterView, ProfileView ,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView
+    RegisterView, ProfileView ,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView
     
 )
 from django.conf import settings
@@ -46,8 +46,14 @@ urlpatterns = [
     path("api/academy/register/", TemporaryAcademyRegisterView.as_view(), name="academy-register"),
     path("api/verify-code/", VerifyCodeView.as_view(), name="verify-code"),
     path('api/verify-academy-email/', TemporaryAcademyVerifyView.as_view(),name='verify-academy-email'),
+
+    #------------- recovery password ---------------
+    path('password-reset/request/', PasswordResetRequestView.as_view()),
+    path('password-reset/verify/', PasswordResetVerifyView.as_view()),
+    path('password-reset/set-new/', SetNewPasswordView.as_view()),
 ]
 
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

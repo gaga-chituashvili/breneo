@@ -3,7 +3,7 @@ from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile,PasswordResetCode
 from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer
 from django.contrib.auth.models import User
 import os, requests, random
@@ -28,7 +28,12 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from rest_framework.parsers import JSONParser, FormParser
-
+from random import randint
+from .serializers import (
+    PasswordResetRequestSerializer, 
+    PasswordResetVerifySerializer, 
+    SetNewPasswordSerializer
+)
 
 
 
@@ -1297,3 +1302,74 @@ class TemporaryAcademyVerifyView(APIView):
         temp_academy.delete()
 
         return Response({"message": "Academy registered successfully!"}, status=201)
+
+
+
+
+# --------------------------
+# Password Recovery
+# --------------------------
+
+
+class PasswordResetRequestView(APIView):
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "User with this email does not exist"}, status=400)
+
+        code = f"{randint(100000, 999999)}"
+        PasswordResetCode.objects.create(user=user, code=code)
+
+        send_mail(
+            subject="Password Reset Code",
+            message=f"Your password reset code is: {code}",
+            from_email=None, 
+            recipient_list=[email],
+        )
+
+        return Response({"message": "Password reset code sent to email"})
+
+class PasswordResetVerifyView(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        code = request.data.get("code")
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=404)
+
+        try:
+            reset_code = PasswordResetCode.objects.get(user=user, code=code)
+        except PasswordResetCode.DoesNotExist:
+            return Response({"error": "Invalid code"}, status=400)
+
+        if reset_code.is_expired():
+            return Response({"error": "Code expired"}, status=400)
+
+        return Response({"message": "Code verified"})
+
+class SetNewPasswordView(APIView):
+    def post(self, request):
+        serializer = SetNewPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        code = serializer.validated_data['code']
+        new_password = serializer.validated_data['new_password']
+
+        try:
+            user = User.objects.get(email=email)
+            reset_code = PasswordResetCode.objects.filter(user=user, code=code).last()
+            if not reset_code or reset_code.is_expired():
+                return Response({"error": "Invalid or expired code"}, status=400)
+        except User.DoesNotExist:
+            return Response({"error": "Invalid email"}, status=400)
+
+        user.set_password(new_password)
+        user.save()
+        return Response({"message": "Password updated successfully"})
