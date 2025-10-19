@@ -4,12 +4,12 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,AcademyRegisterSerializer,RegisterSerializer
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
 from rest_framework import generics
-from .models import CareerQuestion,Academy,UserProfile
+from .models import CareerQuestion,Academy,UserProfile,TemporaryAcademy
 from .serializers import CareerQuestionSerializer
 import json
 import json
@@ -27,6 +27,8 @@ from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
+from rest_framework.parsers import JSONParser, FormParser
+
 
 
 
@@ -1099,18 +1101,6 @@ def get_user_results(request):
 # User Registration
 # --------------------------
 
-from rest_framework.parsers import JSONParser, FormParser
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.contrib.auth.models import User
-from django.contrib.auth.hashers import make_password
-from django.core.mail import send_mail
-from django.conf import settings
-from django.utils import timezone
-
-from .models import TemporaryUser, UserProfile
-from .serializers import RegisterSerializer
 
 class RegisterView(APIView):
     parser_classes = [JSONParser, FormParser]
@@ -1251,44 +1241,77 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 # --------------------------
 
 
-class AcademyRegisterView(generics.CreateAPIView):
-    queryset = Academy.objects.all()
-    serializer_class = AcademyRegisterSerializer
+
+
+class TemporaryAcademyRegisterView(generics.CreateAPIView):
+    queryset = TemporaryAcademy.objects.all()
+    serializer_class = TemporaryAcademyRegisterSerializer
 
     def post(self, request):
         email = request.data.get("email")
+        temp_academy = TemporaryAcademy.objects.filter(email=email).first()
 
-        if Academy.objects.filter(email=email).exists():
-            return Response(
-                {"error": "Email already exists"},
-                status=status.HTTP_400_BAD_REQUEST
+        if temp_academy:
+            temp_academy.name = request.data.get("name")
+            temp_academy.password = make_password(request.data.get("password"))
+            temp_academy.phone_number = request.data.get("phone_number")
+            temp_academy.description = request.data.get("description")
+            temp_academy.website = request.data.get("website")
+        else:
+            temp_academy = TemporaryAcademy.objects.create(
+                name=request.data.get("name"),
+                email=email,
+                password=make_password(request.data.get("password")),
+                phone_number=request.data.get("phone_number"),
+                description=request.data.get("description"),
+                website=request.data.get("website"),
             )
 
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        academy = serializer.save()
+        temp_academy.generate_verification_code()
+        temp_academy.save()
 
-        # send_verification_email(academy, academy=True)
-
-        return Response(
-            {"message": "Academy registered successfully. Verification email sent."},
-            status=status.HTTP_201_CREATED
+        send_mail(
+            "Your Academy Verification Code",
+            f"Your verification code is: {temp_academy.verification_code}",
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False
         )
-    
+
+        return Response({"message": "Verification code sent to your email."}, status=200)
 
 
-class AcademyEmailVerifyView(APIView):
-    def get(self, request, *args, **kwargs):
-        token = request.GET.get("token")
-        email = (token)
+class TemporaryAcademyVerifyView(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        code = request.data.get("code")
 
-        if not email:
-            return Response({"error": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
+        if not email or not code:
+            return Response({"error": "Email and code are required"}, status=400)
 
         try:
-            academy = Academy.objects.get(email=email)
-            academy.is_verified = True
-            academy.save()
-            return Response({"message": "Email verified successfully"}, status=status.HTTP_200_OK)
-        except Academy.DoesNotExist:
-            return Response({"error": "Academy not found"}, status=status.HTTP_404_NOT_FOUND)
+            temp_academy = TemporaryAcademy.objects.get(email=email)
+        except TemporaryAcademy.DoesNotExist:
+            return Response({"error": "Temporary academy not found"}, status=404)
+
+        if temp_academy.verification_code != code:
+            return Response({"error": "Invalid verification code"}, status=400)
+
+        if temp_academy.code_expires_at < timezone.now():
+            temp_academy.delete()
+            return Response({"error": "Verification code expired"}, status=400)
+
+        # Academy-ის შექმნა ბაზაში
+        academy = Academy.objects.create(
+            name=temp_academy.name,
+            email=temp_academy.email,
+            password=temp_academy.password,
+            phone_number=temp_academy.phone_number,
+            description=temp_academy.description,
+            website=temp_academy.website,
+            is_verified=True
+        )
+
+        temp_academy.delete()
+
+        return Response({"message": "Academy registered successfully!"}, status=201)

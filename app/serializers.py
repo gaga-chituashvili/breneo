@@ -7,7 +7,7 @@ from .models import (
     CareerQuestion,
     CareerOption,
     DynamicSoftSkillsQuestion,
-    SkillTestResult,
+    SkillTestResult,TemporaryAcademy
 )
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -138,14 +138,21 @@ class RegisterSerializer(serializers.ModelSerializer):
 # --------------------------
 # Academy Registration
 # --------------------------
-class AcademyRegisterSerializer(serializers.ModelSerializer):
+class TemporaryAcademyRegisterSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Academy
+        model = TemporaryAcademy
         fields = ["name", "email", "password", "phone_number", "description", "website"]
         extra_kwargs = {"password": {"write_only": True}}
+        validators = []
 
     def create(self, validated_data):
-        return Academy.objects.create(**validated_data)
+        validated_data["password"] = make_password(validated_data["password"])
+        temp_academy = TemporaryAcademy.objects.create(**validated_data)
+        temp_academy.generate_verification_code()
+        return temp_academy
+
+
+
 
 
 # --------------------------

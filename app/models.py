@@ -180,6 +180,7 @@ class Academy(models.Model):
     website = models.URLField(blank=True, null=True) 
     created_at = models.DateTimeField(auto_now_add=True) 
     is_verified = models.BooleanField(default=False)
+    
 
 
 
@@ -188,7 +189,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     profile_image = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
-    
+
     def __str__(self):
         return f"{self.user.username} Profile"
 
@@ -212,3 +213,26 @@ class TemporaryUser(models.Model):
 
     def __str__(self):
         return f"{self.email} (Temporary)"
+    
+
+
+class TemporaryAcademy(models.Model):
+    name = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=128)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    website = models.URLField(blank=True, null=True)
+    verification_code = models.CharField(max_length=6, blank=True, null=True)
+    code_expires_at = models.DateTimeField(blank=True, null=True)
+
+    def generate_verification_code(self):
+        import random
+        from django.utils import timezone
+        from datetime import timedelta
+
+        code = str(random.randint(100000, 999999))
+        self.verification_code = code
+        self.code_expires_at = timezone.now() + timedelta(minutes=10)
+        self.save()
+        return code
