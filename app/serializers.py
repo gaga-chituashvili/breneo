@@ -113,31 +113,6 @@ class SkillTestResultSerializer(serializers.ModelSerializer):
 
 
 
-
-
-# class RegisterSerializer(serializers.ModelSerializer):
-#     phone_number = serializers.CharField(write_only=True, required=False)
-
-#     class Meta:
-#         model = User
-#         fields = ["first_name", "last_name", "email", "password", "phone_number"]
-#         extra_kwargs = {"password": {"write_only": True}}
-
-#     def create(self, validated_data):
-#         phone_number = validated_data.pop("phone_number", None)
-#         validated_data["password"] = make_password(validated_data["password"])
-#         user = User.objects.create_user(
-#             username=validated_data["email"],
-#             first_name=validated_data["first_name"],
-#             last_name=validated_data["last_name"],
-#             email=validated_data["email"],
-#             password=validated_data["password"]
-#         )
-#         if phone_number:
-#             UserProfile.objects.create(user=user, phone_number=phone_number)
-#         return user
-
-
 class RegisterSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(write_only=True, required=False)
 

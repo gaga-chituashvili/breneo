@@ -3,7 +3,7 @@ from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile
 from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,AcademyRegisterSerializer,RegisterSerializer
 from django.contrib.auth.models import User
 import os, requests, random
@@ -23,7 +23,10 @@ from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers
 import time
-from .utils import send_verification_email,confirm_verification_token
+from django.contrib.auth.hashers import make_password
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils import timezone
 
 
 
@@ -1096,43 +1099,36 @@ def get_user_results(request):
 # User Registration
 # --------------------------
 
-from django.contrib.auth.models import User
-from django.contrib.auth.hashers import make_password
-from django.core.mail import send_mail
-from django.conf import settings
-from django.utils import timezone
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-
-from .models import TemporaryUser, UserProfile
-from .serializers import RegisterSerializer
-
-# ---------------------------
-# Step 1: Register - მხოლოდ კოდის გაგზავნა
-# ---------------------------
 class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        # უკვე არსებობს Check
-        if User.objects.filter(email=data['email']).exists() or TemporaryUser.objects.filter(email=data['email']).exists():
-            return Response({"error": "Email already exists"}, status=status.HTTP_400_BAD_REQUEST)
+        # თუ უკვე არსებობს User-ის ბაზაში
+        if User.objects.filter(email=data['email']).exists():
+            return Response({"error": "Email already registered"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # შექმნა TemporaryUser
-        temp_user = TemporaryUser(
-            first_name=data['first_name'],
-            last_name=data['last_name'],
-            email=data['email'],
-            password=make_password(data['password']),
-            phone_number=data.get('phone_number', '')
-        )
+        # თუ უკვე არსებობს TemporaryUser, უბრალოდ ახალი კოდი ავაგდოთ
+        temp_user, created = TemporaryUser.objects.get_or_create(email=data['email'], defaults={
+            'first_name': data['first_name'],
+            'last_name': data['last_name'],
+            'password': make_password(data['password']),
+            'phone_number': data.get('phone_number', '')
+        })
+
+        if not created:
+            # განახლება ახალი კოდის გენერაციით
+            temp_user.first_name = data['first_name']
+            temp_user.last_name = data['last_name']
+            temp_user.password = make_password(data['password'])
+            temp_user.phone_number = data.get('phone_number', '')
+        
+        # კოდის გენერაცია
         temp_user.generate_verification_code()
         temp_user.save()
 
-        # Gmail-ზე კოდის გაგზავნა
+        # კოდის გაგზავნა
         send_mail(
             "Your Verification Code",
             f"Your verification_code is: {temp_user.verification_code}",
@@ -1168,7 +1164,8 @@ class VerifyCodeView(APIView):
             first_name=temp_user.first_name,
             last_name=temp_user.last_name,
             email=temp_user.email,
-            password=temp_user.password
+            password=temp_user.password,
+            is_active=True
         )
 
         # UserProfile შექმნა
@@ -1249,7 +1246,7 @@ class AcademyRegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         academy = serializer.save()
 
-        send_verification_email(academy, academy=True)
+        # send_verification_email(academy, academy=True)
 
         return Response(
             {"message": "Academy registered successfully. Verification email sent."},
@@ -1261,7 +1258,7 @@ class AcademyRegisterView(generics.CreateAPIView):
 class AcademyEmailVerifyView(APIView):
     def get(self, request, *args, **kwargs):
         token = request.GET.get("token")
-        email = confirm_verification_token(token)
+        email = (token)
 
         if not email:
             return Response({"error": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)

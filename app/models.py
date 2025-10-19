@@ -188,17 +188,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     profile_image = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
-    is_verified = models.BooleanField(default=False)
-    verification_code = models.CharField(max_length=6, blank=True, null=True)
-    code_expires_at = models.DateTimeField(blank=True, null=True)
-
-    def generate_verification_code(self):
-        code = str(random.randint(100000, 999999))
-        self.verification_code = code
-        self.code_expires_at = timezone.now() + timedelta(minutes=10)
-        self.save()
-        return code
-
+    
     def __str__(self):
         return f"{self.user.username} Profile"
 
