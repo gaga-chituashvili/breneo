@@ -1112,40 +1112,42 @@ from django.utils import timezone
 from .models import TemporaryUser, UserProfile
 from .serializers import RegisterSerializer
 
-# ---------------------------
-# Register
-# ---------------------------
 class RegisterView(APIView):
-    parser_classes = [JSONParser, FormParser]  # JSON და form-data ორივე
+    parser_classes = [JSONParser, FormParser]
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        # უკვე არსებობს User-ის ბაზაში
+        # თუ უკვე არსებობს User-ის ბაზაში
         if User.objects.filter(email=data['email']).exists():
             return Response({"error": "Email already registered"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # TemporaryUser get or create
-        temp_user, created = TemporaryUser.objects.get_or_create(email=data['email'], defaults={
-            'first_name': data['first_name'],
-            'last_name': data['last_name'],
-            'password': make_password(data['password']),
-            'phone_number': data.get('phone_number', '')
-        })
+        # მოძებნე TemporaryUser იგივე email-ით
+        temp_user = TemporaryUser.objects.filter(email=data['email']).first()
 
-        if not created:
-            # განახლება ახალი კოდის გენერაციით
+        if temp_user:
+            # განახლება ახალი კოდის და პაროლის გენერაციით
             temp_user.first_name = data['first_name']
             temp_user.last_name = data['last_name']
             temp_user.password = make_password(data['password'])
             temp_user.phone_number = data.get('phone_number', '')
+        else:
+            # შექმნა ახალი დროებითი მომხმარებელი
+            temp_user = TemporaryUser.objects.create(
+                first_name=data['first_name'],
+                last_name=data['last_name'],
+                email=data['email'],
+                password=make_password(data['password']),
+                phone_number=data.get('phone_number', '')
+            )
 
-        # კოდის გენერაცია
+        # კოდის გენერაცია და შენახვა
         temp_user.generate_verification_code()
         temp_user.save()
 
-        # კოდის გაგზავნა
+        # გაგზავნა email-ზე
         send_mail(
             "Your Verification Code",
             f"Your verification_code is: {temp_user.verification_code}",
@@ -1157,11 +1159,9 @@ class RegisterView(APIView):
         return Response({"message": "Verification code sent to your email."}, status=status.HTTP_200_OK)
 
 
-# ---------------------------
-# Verify Code
-# ---------------------------
 class VerifyCodeView(APIView):
-    parser_classes = [JSONParser, FormParser]  # JSON და form-data ორივე
+    parser_classes = [JSONParser, FormParser]
+
     def post(self, request):
         email = request.data.get("email")
         code = request.data.get("code")

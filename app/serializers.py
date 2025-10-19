@@ -120,6 +120,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = TemporaryUser 
         fields = ["first_name", "last_name", "email", "password", "phone_number"]
         extra_kwargs = {"password": {"write_only": True}}
+        validators = []
 
     def create(self, validated_data):
         # პაროლი hash-ით
