@@ -112,28 +112,18 @@ class SkillTestResultSerializer(serializers.ModelSerializer):
 
 
 
-
 class RegisterSerializer(serializers.ModelSerializer):
-    phone_number = serializers.CharField(write_only=True, required=False)
-
     class Meta:
-        model = TemporaryUser 
+        model = TemporaryUser
         fields = ["first_name", "last_name", "email", "password", "phone_number"]
         extra_kwargs = {"password": {"write_only": True}}
         validators = []
 
     def create(self, validated_data):
-        # პაროლი hash-ით
         validated_data["password"] = make_password(validated_data["password"])
-
-        # დროებითი ობიექტის შექმნა
         temp_user = TemporaryUser.objects.create(**validated_data)
-
-        # 6-ნიშნა კოდის გენერაცია
         temp_user.generate_verification_code()
-
         return temp_user
-
 
 # --------------------------
 # Academy Registration

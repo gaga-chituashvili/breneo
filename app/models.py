@@ -227,10 +227,6 @@ class TemporaryAcademy(models.Model):
     code_expires_at = models.DateTimeField(blank=True, null=True)
 
     def generate_verification_code(self):
-        import random
-        from django.utils import timezone
-        from datetime import timedelta
-
         code = str(random.randint(100000, 999999))
         self.verification_code = code
         self.code_expires_at = timezone.now() + timedelta(minutes=10)

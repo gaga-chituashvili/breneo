@@ -1095,58 +1095,44 @@ def get_user_results(request):
     serializer = SkillTestResultSerializer(results, many=True)
     return Response(serializer.data)
 
-
-
 # --------------------------
 # User Registration
 # --------------------------
 
-
-class RegisterView(APIView):
-    parser_classes = [JSONParser, FormParser]
+class RegisterView(generics.CreateAPIView):
+    queryset = TemporaryUser.objects.all()
+    serializer_class = RegisterSerializer
 
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-
-        # თუ უკვე არსებობს User-ის ბაზაში
-        if User.objects.filter(email=data['email']).exists():
-            return Response({"error": "Email already registered"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # მოძებნე TemporaryUser იგივე email-ით
-        temp_user = TemporaryUser.objects.filter(email=data['email']).first()
+        email = request.data.get("email")
+        temp_user = TemporaryUser.objects.filter(email=email).first()
 
         if temp_user:
-            # განახლება ახალი კოდის და პაროლის გენერაციით
-            temp_user.first_name = data['first_name']
-            temp_user.last_name = data['last_name']
-            temp_user.password = make_password(data['password'])
-            temp_user.phone_number = data.get('phone_number', '')
+            temp_user.first_name = request.data.get("first_name")
+            temp_user.last_name = request.data.get("last_name")
+            temp_user.password = make_password(request.data.get("password"))
+            temp_user.phone_number = request.data.get("phone_number")
         else:
-            # შექმნა ახალი დროებითი მომხმარებელი
             temp_user = TemporaryUser.objects.create(
-                first_name=data['first_name'],
-                last_name=data['last_name'],
-                email=data['email'],
-                password=make_password(data['password']),
-                phone_number=data.get('phone_number', '')
+                first_name=request.data.get("first_name"),
+                last_name=request.data.get("last_name"),
+                email=email,
+                password=make_password(request.data.get("password")),
+                phone_number=request.data.get("phone_number"),
             )
 
-        # კოდის გენერაცია და შენახვა
         temp_user.generate_verification_code()
         temp_user.save()
 
-        # გაგზავნა email-ზე
         send_mail(
             "Your Verification Code",
-            f"Your verification_code is: {temp_user.verification_code}",
+            f"Your verification code is: {temp_user.verification_code}",
             settings.DEFAULT_FROM_EMAIL,
-            [temp_user.email],
+            [email],
             fail_silently=False
         )
 
-        return Response({"message": "Verification code sent to your email."}, status=status.HTTP_200_OK)
+        return Response({"message": "Verification code sent to your email."}, status=200)
 
 
 class VerifyCodeView(APIView):
@@ -1196,7 +1182,6 @@ class VerifyCodeView(APIView):
 # --------------------------
 # User Profile
 # --------------------------
-from django.conf import settings
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1235,12 +1220,9 @@ class ProfileView(APIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
-
 # --------------------------
 # Academy Registration
 # --------------------------
-
-
 
 
 class TemporaryAcademyRegisterView(generics.CreateAPIView):
@@ -1301,7 +1283,7 @@ class TemporaryAcademyVerifyView(APIView):
             temp_academy.delete()
             return Response({"error": "Verification code expired"}, status=400)
 
-        # Academy-ის შექმნა ბაზაში
+        
         academy = Academy.objects.create(
             name=temp_academy.name,
             email=temp_academy.email,
