@@ -194,3 +194,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             }
 
         raise AuthenticationFailed("Invalid email/full name or password.")
+    
+
+
+class VerifyCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=6)

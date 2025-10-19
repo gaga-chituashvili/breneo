@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from decouple import config
 
 # Load .env
 load_dotenv()
@@ -123,7 +124,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
-from decouple import config
+
 
 EMAIL_BACKEND = config("EMAIL_BACKEND")
 EMAIL_HOST = config("EMAIL_HOST")
