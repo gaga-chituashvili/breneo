@@ -3,7 +3,7 @@ from .models import (
     Assessment, AssessmentSession, Badge,
     Job, Skill, UserSkill, Course,
     DynamicTechQuestion,
-    CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion,SkillScore,Academy,UserProfile,TemporaryUser
+    CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion,SkillScore,Academy,UserProfile,TemporaryUser,TemporaryAcademy
 )
 admin.site.register(Assessment)
 admin.site.register(Badge)
@@ -13,6 +13,7 @@ admin.site.register(UserSkill)
 admin.site.register(Course)
 admin.site.register(UserProfile)
 admin.site.register(TemporaryUser)
+admin.site.register(TemporaryAcademy)
 
 
 @admin.register(DynamicTechQuestion)
