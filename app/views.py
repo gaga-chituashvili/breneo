@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile,PasswordResetCode
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer,UserProfileUpdateSerializer, AcademyUpdateSerializer
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer,UserProfileUpdateSerializer, AcademyUpdateSerializer,AcademyChangePasswordSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
@@ -35,6 +35,8 @@ from .serializers import (
     SetNewPasswordSerializer
 )
 from django.contrib.auth import get_user_model
+
+
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -1443,7 +1445,7 @@ class UserProfileUploadView(APIView):
 
 
 
-#----------- Change Password ----------------
+#----------- User Change Password ----------------
 
 User = get_user_model()
 from .serializers import ChangePasswordSerializer
@@ -1463,3 +1465,21 @@ class ChangePasswordView(APIView):
         user.save()
 
         return Response({"message": "Password changed successfully"})
+    
+
+
+#----------------- Academy Change Password ---------------
+
+
+
+class AcademyChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = AcademyChangePasswordSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            academy = request.user
+            academy.password = make_password(serializer.validated_data['new_password'])
+            academy.save()
+            return Response({"message": "Password changed successfully."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

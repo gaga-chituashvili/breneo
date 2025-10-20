@@ -256,7 +256,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         user = self.context["request"].user
         if User.objects.exclude(pk=user.pk).filter(email__iexact=value).exists():
-            raise serializers.ValidationError("ეს მეილი უკვე დაკავებულია.")
+            raise serializers.ValidationError("this mail already taken")
         return value
 
     def update(self, instance, validated_data):
@@ -297,13 +297,13 @@ class AcademyUpdateSerializer(serializers.ModelSerializer):
         instance = getattr(self, "instance", None)
         qs = Academy.objects.exclude(pk=instance.pk) if instance else Academy.objects.all()
         if qs.filter(email__iexact=value).exists():
-            raise serializers.ValidationError("ეს მეილი უკვე დაკავებულია.")
+            raise serializers.ValidationError("this mail already taken")
         return value
 
 
 
 
-#------------ Change Password -------------------
+#------------ User Change Password -------------------
 
 User = get_user_model()
 
@@ -316,3 +316,25 @@ class ChangePasswordSerializer(serializers.Serializer):
         if data['new_password'] != data['confirm_password']:
             raise serializers.ValidationError("Passwords do not match")
         return data
+    
+
+
+#------------ Academy Change Password -----------------
+
+
+
+class AcademyChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match")
+        return data
+
+    def validate_old_password(self, value):
+        academy = self.context['request'].user
+        if not check_password(value, academy.password):
+            raise serializers.ValidationError("Old password is incorrect")
+        return value

@@ -8,7 +8,7 @@ from .views import (
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
     StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,
     CareerRoadmapAPI, save_test_results, get_user_results,
-    RegisterView,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView,UserProfileUploadView,UserProfileUpdateView,AcademyProfileUpdateView,ChangePasswordView
+    RegisterView,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView,UserProfileUploadView,UserProfileUpdateView,AcademyProfileUpdateView,ChangePasswordView,AcademyChangePasswordView
     
 )
 from django.conf import settings
@@ -55,6 +55,7 @@ urlpatterns = [
     path('password-reset/set-new/', SetNewPasswordView.as_view()),
     #-------------- Change Password ----------------
     path("api/change-password/", ChangePasswordView.as_view(), name="change-password"),   
+    path('api/academy/change-password/', AcademyChangePasswordView.as_view(), name='academy-change-password'),
 ]
 
 
