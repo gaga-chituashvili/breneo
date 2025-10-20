@@ -58,6 +58,16 @@ WHITENOISE_USE_FINDERS = True
 CORS_ALLOW_ALL_ORIGINS = True
 
 
+
+# wsgi.py – WhiteNoise media serve
+from whitenoise import WhiteNoise
+from django.core.wsgi import get_wsgi_application
+
+application = get_wsgi_application()
+application = WhiteNoise(application, root='/media', prefix='media/')
+
+
+
 ROOT_URLCONF = "mysite.urls"
 
 TEMPLATES = [
