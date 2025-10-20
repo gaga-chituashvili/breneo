@@ -233,6 +233,11 @@ class TemporaryAcademy(models.Model):
         self.save()
         return code
     
+    def __str__(self):
+        return f"{self.email} (Temporary)"
+    
+    
+    
 
 
 

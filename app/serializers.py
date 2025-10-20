@@ -145,6 +145,8 @@ class TemporaryAcademyRegisterSerializer(serializers.ModelSerializer):
 
 
 
+
+
 # --------------------------
 # Token Serializer
 # --------------------------

@@ -38,6 +38,9 @@ from django.contrib.auth import get_user_model
 
 
 
+
+
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # ---------------- Home ----------------
@@ -1140,6 +1143,8 @@ class RegisterView(generics.CreateAPIView):
         return Response({"message": "Verification code sent to your email."}, status=200)
 
 
+
+
 class VerifyCodeView(APIView):
     parser_classes = [JSONParser, FormParser]
 
@@ -1150,37 +1155,68 @@ class VerifyCodeView(APIView):
         if not email or not code:
             return Response({"error": "Email and code are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            temp_user = TemporaryUser.objects.get(email=email)
-        except TemporaryUser.DoesNotExist:
-            return Response({"error": "Temporary user not found"}, status=status.HTTP_404_NOT_FOUND)
+        # მომხმარებლის ვერიოფიკაცია
+        temp_user = TemporaryUser.objects.filter(email=email).first()
+        temp_academy = TemporaryAcademy.objects.filter(email=email).first()
 
-        if temp_user.verification_code != code:
-            return Response({"error": "Invalid verification code"}, status=status.HTTP_400_BAD_REQUEST)
+        if not temp_user and not temp_academy:
+            return Response({"error": "No temporary record found for this email"}, status=status.HTTP_404_NOT_FOUND)
 
-        if temp_user.code_expires_at < timezone.now():
+        # თუ არის TemporaryUser
+        if temp_user:
+            if temp_user.verification_code != code:
+                return Response({"error": "Invalid verification code"}, status=status.HTTP_400_BAD_REQUEST)
+            if temp_user.code_expires_at < timezone.now():
+                temp_user.delete()
+                return Response({"error": "Verification code expired"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # უკვე არსებობს User
+            if User.objects.filter(email=temp_user.email).exists():
+                temp_user.delete()
+                return Response({"error": "A user with this email already exists"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # User-ის შექმნა
+            user = User.objects.create(
+                username=temp_user.email,
+                first_name=temp_user.first_name,
+                last_name=temp_user.last_name,
+                email=temp_user.email,
+                password=temp_user.password,
+                is_active=True
+            )
+            # UserProfile შექმნა
+            UserProfile.objects.create(
+                user=user,
+                phone_number=temp_user.phone_number
+            )
             temp_user.delete()
-            return Response({"error": "Verification code expired"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "User registered successfully!"}, status=status.HTTP_201_CREATED)
 
-        # User-ის შექმნა
-        user = User.objects.create(
-            username=temp_user.email,
-            first_name=temp_user.first_name,
-            last_name=temp_user.last_name,
-            email=temp_user.email,
-            password=temp_user.password,
-            is_active=True
-        )
+        # თუ არის TemporaryAcademy
+        if temp_academy:
+            if temp_academy.verification_code != code:
+                return Response({"error": "Invalid verification code"}, status=status.HTTP_400_BAD_REQUEST)
+            if temp_academy.code_expires_at < timezone.now():
+                temp_academy.delete()
+                return Response({"error": "Verification code expired"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # უკვე არსებობს Academy
+            if Academy.objects.filter(email=temp_academy.email).exists():
+                temp_academy.delete()
+                return Response({"error": "An academy with this email already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # UserProfile შექმნა
-        UserProfile.objects.create(
-            user=user,
-            phone_number=temp_user.phone_number
-        )
-
-        temp_user.delete()
-
-        return Response({"message": "User registered successfully!"}, status=status.HTTP_201_CREATED)
+            # Academy-ის შექმნა
+            academy = Academy.objects.create(
+                name=temp_academy.name,
+                email=temp_academy.email,
+                password=temp_academy.password,
+                phone_number=temp_academy.phone_number,
+                description=temp_academy.description,
+                website=temp_academy.website,
+                is_verified=True
+            )
+            temp_academy.delete()
+            return Response({"message": "Academy registered successfully!"}, status=status.HTTP_201_CREATED)
 
         
         
@@ -1341,7 +1377,12 @@ class TemporaryAcademyVerifyView(APIView):
             temp_academy.delete()
             return Response({"error": "Verification code expired"}, status=400)
 
-        
+        # აქ ვამოწმებთ უნიკალურობას
+        if Academy.objects.filter(email=email).exists():
+            temp_academy.delete()
+            return Response({"error": "An academy with this email already exists"}, status=400)
+
+
         academy = Academy.objects.create(
             name=temp_academy.name,
             email=temp_academy.email,
