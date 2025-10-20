@@ -8,7 +8,7 @@ from .views import (
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
     StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,
     CareerRoadmapAPI, save_test_results, get_user_results,
-    RegisterView, ProfileView ,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView
+    RegisterView, ProfileView ,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView,UserProfileUploadView
     
 )
 from django.conf import settings
@@ -28,6 +28,7 @@ urlpatterns = [
     path("api/finish-assessment-simple/", finish_assessment, name="finish-assessment-simple"),
     path('api/career-categories/', CareerCategoryListAPIView.as_view(), name='career-categories'),
     path("api/career-questions-random/", RandomCareerQuestionsAPI.as_view(), name="career-questions-random"),
+    path('api/profile/upload/', UserProfileUploadView.as_view(), name='profile-upload'),
 
     # ---------------- Soft Skills Assessment ----------------
     path('api/softskillsquestions/', DynamicSoftSkillsquestionsAPI.as_view(), name='SoftSkills_questions'),

@@ -10,7 +10,7 @@ import os, requests, random
 from rest_framework import status
 from rest_framework import generics
 from .models import CareerQuestion,Academy,UserProfile,TemporaryAcademy
-from .serializers import CareerQuestionSerializer
+from .serializers import CareerQuestionSerializer,UserProfileSerializer
 import json
 import json
 import joblib
@@ -27,16 +27,13 @@ from django.contrib.auth.hashers import make_password
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
-from rest_framework.parsers import JSONParser, FormParser
+from rest_framework.parsers import JSONParser, FormParser,MultiPartParser
 from random import randint
 from .serializers import (
     PasswordResetRequestSerializer, 
     PasswordResetVerifySerializer, 
     SetNewPasswordSerializer
 )
-
-
-
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -1373,3 +1370,17 @@ class SetNewPasswordView(APIView):
         user.set_password(new_password)
         user.save()
         return Response({"message": "Password updated successfully"})
+
+
+
+
+class UserProfileUploadView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def put(self, request, *args, **kwargs):
+        profile = request.user.profile
+        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
