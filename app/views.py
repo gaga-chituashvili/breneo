@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile,PasswordResetCode
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer,UserProfileUpdateSerializer, AcademyUpdateSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
@@ -34,6 +34,7 @@ from .serializers import (
     PasswordResetVerifySerializer, 
     SetNewPasswordSerializer
 )
+from django.contrib.auth import get_user_model
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -1184,36 +1185,89 @@ class VerifyCodeView(APIView):
 # --------------------------
 # User Profile
 # --------------------------
-class ProfileView(APIView):
+
+
+class UserProfileUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        profile = getattr(request.user, "profile", None)
+        user = request.user
+        profile = getattr(user, "profile", None)
         profile_image_url = None
-        if profile and profile.profile_image:
-            profile_image_url = request.build_absolute_uri(
-                settings.MEDIA_URL + profile.profile_image.name
-            )
+        phone = None
+        if profile:
+            phone = profile.phone_number
+            if profile.profile_image:
+                profile_image_url = request.build_absolute_uri(profile.profile_image.url)
 
         return Response({
-            "first_name": request.user.first_name,
-            "last_name": request.user.last_name,
-            "email": request.user.email,
-            "phone_number": profile.phone_number if profile else None,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "phone_number": phone,
             "profile_image": profile_image_url
         })
 
     def patch(self, request):
-        profile = getattr(request.user, "profile", None)
-        if not profile:
-            return Response({"error": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
+        user = request.user
+        serializer = UserProfileUpdateSerializer(user, data=request.data, partial=True, context={"request": request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
 
-        if "profile_image" in request.FILES:
-            profile.profile_image = request.FILES["profile_image"]
-            profile.save()
-            return Response({"message": "Profile image updated successfully"}, status=status.HTTP_200_OK)
+        # reload profile image url
+        profile = getattr(user, "profile", None)
+        profile_image_url = request.build_absolute_uri(profile.profile_image.url) if profile and profile.profile_image else None
 
-        return Response({"error": "No image uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "message": "Profile updated successfully.",
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "phone_number": profile.phone_number if profile else None,
+            "profile_image": profile_image_url
+        }, status=status.HTTP_200_OK)
+
+
+class AcademyProfileUpdateView(APIView):
+    permission_classes = [IsAuthenticated]  
+
+    def get_academy(self, request):
+        if hasattr(request.user, "email"):
+            return Academy.objects.filter(email__iexact=request.user.email).first()
+        return None
+
+    def get(self, request):
+        academy = self.get_academy(request)
+        if not academy:
+            return Response({"error": "Academy not found or not authenticated as academy."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({
+            "name": academy.name,
+            "email": academy.email,
+            "phone_number": academy.phone_number,
+            "description": academy.description,
+            "website": academy.website
+        })
+
+    def patch(self, request):
+        academy = self.get_academy(request)
+        if not academy:
+            return Response({"error": "Academy not found or not authenticated as academy."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = AcademyUpdateSerializer(academy, data=request.data, partial=True, context={"request": request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+
+        return Response({
+            "message": "Academy profile updated successfully.",
+            "name": academy.name,
+            "email": academy.email,
+            "phone_number": academy.phone_number,
+            "description": academy.description,
+            "website": academy.website
+        }, status=status.HTTP_200_OK)
 
 
 # --------------------------
@@ -1384,3 +1438,28 @@ class UserProfileUploadView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+
+
+
+
+
+#----------- Change Password ----------------
+
+User = get_user_model()
+from .serializers import ChangePasswordSerializer
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+
+        if not user.check_password(serializer.validated_data['old_password']):
+            return Response({"error": "Old password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(serializer.validated_data['new_password'])
+        user.save()
+
+        return Response({"message": "Password changed successfully"})

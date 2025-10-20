@@ -9,7 +9,7 @@ from .models import (
     DynamicSoftSkillsQuestion,
     SkillTestResult,TemporaryAcademy
 )
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate,get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
 from .models import Academy,UserProfile,TemporaryUser
@@ -232,3 +232,87 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = ['user', 'phone_number', 'profile_image']
         read_only_fields = ['user']
+
+
+
+
+
+
+User = get_user_model()
+
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    phone_number = serializers.CharField(source="profile.phone_number", allow_blank=True, required=False)
+    profile_image = serializers.ImageField(source="profile.profile_image", allow_null=True, required=False)
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email", "phone_number", "profile_image"]
+        extra_kwargs = {
+            "first_name": {"required": False},
+            "last_name": {"required": False},
+            "email": {"required": False},
+        }
+
+    def validate_email(self, value):
+        user = self.context["request"].user
+        if User.objects.exclude(pk=user.pk).filter(email__iexact=value).exists():
+            raise serializers.ValidationError("ეს მეილი უკვე დაკავებულია.")
+        return value
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop("profile", {})
+
+        # update user fields
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+        instance.save()
+
+        profile, _ = UserProfile.objects.get_or_create(user=instance)
+
+        if "phone_number" in profile_data:
+            profile.phone_number = profile_data.get("phone_number")
+
+        if "profile_image" in profile_data:
+            profile.profile_image = profile_data.get("profile_image")
+
+        profile.save()
+        return instance
+
+
+class AcademyUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Academy
+        fields = ["name", "email", "phone_number", "description", "website"]
+        extra_kwargs = {
+            "name": {"required": False},
+            "email": {"required": False},
+            "phone_number": {"required": False},
+            "description": {"required": False},
+            "website": {"required": False},
+        }
+
+    def validate_email(self, value):
+        request = self.context.get("request")
+        academy = getattr(request, "academy", None) 
+        instance = getattr(self, "instance", None)
+        qs = Academy.objects.exclude(pk=instance.pk) if instance else Academy.objects.all()
+        if qs.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("ეს მეილი უკვე დაკავებულია.")
+        return value
+
+
+
+
+#------------ Change Password -------------------
+
+User = get_user_model()
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match")
+        return data
