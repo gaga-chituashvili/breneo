@@ -29,7 +29,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = '/media'
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     "corsheaders",
     "app",
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
@@ -133,4 +135,5 @@ EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")
+
 
