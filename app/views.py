@@ -41,6 +41,7 @@ from django.contrib.auth import get_user_model
 
 
 
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # ---------------- Home ----------------
@@ -1524,3 +1525,34 @@ class AcademyChangePasswordView(APIView):
             academy.save()
             return Response({"message": "Password changed successfully."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+#----------------- Photo Upload ---------------
+
+class UserProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        serializer = UserProfileSerializer(profile)
+        return Response(serializer.data)
+
+    def put(self, request):
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        profile = request.user.profile
+        if profile.profile_image:
+            profile.profile_image.delete(save=True)
+            profile.profile_image = None
+            profile.save()
+            return Response({"message": "Profile image deleted successfully"})
+        return Response({"error": "No image to delete"}, status=status.HTTP_400_BAD_REQUEST)

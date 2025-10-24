@@ -340,3 +340,21 @@ class AcademyChangePasswordSerializer(serializers.Serializer):
         if not check_password(value, academy.password):
             raise serializers.ValidationError("Old password is incorrect")
         return value
+    
+
+
+
+
+#------------------- person information -----------------
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ["id", "phone_number", "profile_image"]
+
+    def update(self, instance, validated_data):
+        instance.phone_number = validated_data.get("phone_number", instance.phone_number)
+        if validated_data.get("profile_image"):
+            instance.profile_image = validated_data.get("profile_image")
+        instance.save()
+        return instance
