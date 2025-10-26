@@ -249,3 +249,32 @@ class PasswordResetCode(models.Model):
 
     def is_expired(self):
         return timezone.now() > self.created_at + timedelta(minutes=15)
+    
+
+
+
+
+
+
+
+class SocialLinks(models.Model):
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, null=True, blank=True, related_name="social_links"
+    )
+    academy = models.OneToOneField(
+        Academy, on_delete=models.CASCADE, null=True, blank=True, related_name="social_links"
+    )
+
+    github = models.URLField(blank=True, null=True)
+    linkedin = models.URLField(blank=True, null=True)
+    facebook = models.URLField(blank=True, null=True)
+    instagram = models.URLField(blank=True, null=True)
+    dribbble = models.URLField(blank=True, null=True)
+    behance = models.URLField(blank=True, null=True)
+
+    def __str__(self):
+        if self.user:
+            return f"{self.user.username}'s Social Links"
+        elif self.academy:
+            return f"{self.academy.name}'s Social Links"
+        return "Unknown Social Links"

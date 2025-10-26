@@ -3,8 +3,8 @@ from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile,PasswordResetCode
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer,UserProfileUpdateSerializer, AcademyUpdateSerializer,AcademyChangePasswordSerializer
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile,PasswordResetCode,SocialLinks
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer,UserProfileUpdateSerializer, AcademyUpdateSerializer,AcademyChangePasswordSerializer,SocialLinksSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
@@ -35,8 +35,6 @@ from .serializers import (
     SetNewPasswordSerializer
 )
 from django.contrib.auth import get_user_model
-
-
 
 
 
@@ -1556,3 +1554,29 @@ class UserProfileView(APIView):
             profile.save()
             return Response({"message": "Profile image deleted successfully"})
         return Response({"error": "No image to delete"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+#------------------- Social -------------------------
+
+
+
+class SocialLinksView(generics.RetrieveUpdateAPIView):
+    serializer_class = SocialLinksSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        user = self.request.user
+
+        
+        if hasattr(user, "userprofile"): 
+            obj, created = SocialLinks.objects.get_or_create(user=user)
+            return obj
+
+        
+        elif hasattr(user, "academy"): 
+            obj, created = SocialLinks.objects.get_or_create(academy=user.academy)
+            return obj
+
+        return None

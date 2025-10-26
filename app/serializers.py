@@ -7,7 +7,7 @@ from .models import (
     CareerQuestion,
     CareerOption,
     DynamicSoftSkillsQuestion,
-    SkillTestResult,TemporaryAcademy
+    SkillTestResult,TemporaryAcademy,SocialLinks
 )
 from django.contrib.auth import authenticate,get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -358,3 +358,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
             instance.profile_image = validated_data.get("profile_image")
         instance.save()
         return instance
+    
+
+
+
+
+
+
+class SocialLinksSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SocialLinks
+        fields = "__all__"
+        read_only_fields = ["user", "academy"]
