@@ -1530,6 +1530,32 @@ class AcademyChangePasswordView(APIView):
 
 #----------------- Photo Upload ---------------
 
+# class UserProfileView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+
+#     def get(self, request):
+#         profile, _ = UserProfile.objects.get_or_create(user=request.user)
+#         serializer = UserProfileSerializer(profile)
+#         return Response(serializer.data)
+
+#     def put(self, request):
+#         profile, _ = UserProfile.objects.get_or_create(user=request.user)
+#         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#     def delete(self, request):
+#         profile = request.user.profile
+#         if profile.profile_image:
+#             profile.profile_image.delete(save=True)
+#             profile.profile_image = None
+#             profile.save()
+#             return Response({"message": "Profile image deleted successfully"})
+#         return Response({"error": "No image to delete"}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1539,11 +1565,22 @@ class UserProfileView(APIView):
         return Response(serializer.data)
 
     def put(self, request):
+        start = time.time()  # ⏱️ ატვირთვის დასაწყისი
+
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            end = time.time()  # ⏱️ ატვირთვის დასრულება
+            duration = round(end - start, 2)
+            print(f"🕒 Upload processing time: {duration} seconds")  # გამოჩნდება Render Logs-ში
+
+            return Response({
+                "upload_time_seconds": duration,
+                "data": serializer.data
+            })
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
@@ -1554,7 +1591,6 @@ class UserProfileView(APIView):
             profile.save()
             return Response({"message": "Profile image deleted successfully"})
         return Response({"error": "No image to delete"}, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 
