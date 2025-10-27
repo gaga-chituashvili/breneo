@@ -1470,17 +1470,6 @@ class SetNewPasswordView(APIView):
 
 
 
-class UserProfileUploadView(APIView):
-    parser_classes = (MultiPartParser, FormParser)
-
-    def put(self, request, *args, **kwargs):
-        profile = request.user.profile
-        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=400)
-
 
 
 
@@ -1532,6 +1521,7 @@ class AcademyChangePasswordView(APIView):
 
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
 
     def get(self, request):
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
@@ -1554,6 +1544,7 @@ class UserProfileView(APIView):
             profile.save()
             return Response({"message": "Profile image deleted successfully"})
         return Response({"error": "No image to delete"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 

@@ -231,15 +231,6 @@ class SetNewPasswordSerializer(serializers.Serializer):
 
 
 
-class UserProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserProfile
-        fields = ['user', 'phone_number', 'profile_image']
-        read_only_fields = ['user']
-
-
-
-
 
 
 
@@ -367,7 +358,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-    
 
 
 
