@@ -3,7 +3,7 @@ from .models import (
     Assessment, AssessmentSession, Badge,
     Job, Skill, UserSkill, Course,
     DynamicTechQuestion,
-    CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion,SkillScore,Academy,UserProfile,TemporaryUser,TemporaryAcademy
+    CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion,SkillScore,Academy,UserProfile,TemporaryUser,TemporaryAcademy,SkillTestResult
 )
 admin.site.register(Assessment)
 admin.site.register(Badge)
@@ -63,11 +63,22 @@ class SkillScoreAdmin(admin.ModelAdmin):
 
 
 
+@admin.register(SkillTestResult)
+class SkillTestResultAdmin(admin.ModelAdmin):
+    list_display = ('user', 'final_role', 'total_score', 'created_at')
+    search_fields = ('user__username', 'final_role')
+    list_filter = ('final_role', 'created_at')
+    readonly_fields = ('created_at',)
+    ordering = ('-created_at',)
+
+
 
 @admin.register(Academy)
 class AcademyAdmin(admin.ModelAdmin):
     list_display = ('name', 'email', 'phone_number','password','website', 'created_at')
     search_fields = ('name', 'email')
+
+
 
 
 
