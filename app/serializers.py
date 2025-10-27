@@ -15,6 +15,9 @@ from django.contrib.auth.models import User
 from .models import Academy,UserProfile,TemporaryUser
 from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth.hashers import make_password, check_password
+from rest_framework_simplejwt.tokens import RefreshToken
+User = get_user_model()
+
 
 # --------------------------
 # Assessment & Badge
@@ -151,72 +154,15 @@ class TemporaryAcademyRegisterSerializer(serializers.ModelSerializer):
 # Token Serializer
 # --------------------------
 
-# class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-#     def validate(self, attrs):
-#         identifier = attrs.get("username")
-#         password = attrs.get("password")
-
-#         user = None
-#         user = User.objects.filter(email__iexact=identifier).first()
-
-#         if not user and " " in identifier:
-#             first_name, last_name = identifier.split(" ", 1)
-#             user = User.objects.filter(
-#                 first_name__iexact=first_name.strip(),
-#                 last_name__iexact=last_name.strip()
-#             ).first()
-
-#         if user and user.check_password(password):
-#             attrs["username"] = user.email
-#             data = super().validate(attrs)
-#             profile = getattr(user, "profile", None)
-#             phone_number = getattr(profile, "phone_number", None)
-#             profile_image_url = profile.profile_image.url if profile and profile.profile_image else None
-
-#             data.update({
-#                 "first_name": user.first_name,
-#                 "last_name": user.last_name,
-#                 "email": user.email,
-#                 "phone_number": phone_number,
-#                 "profile_image": profile_image_url,
-#                 "user_type": "user"
-#             })
-#             return data
-
-#         academy = Academy.objects.filter(email__iexact=identifier).first()
-#         if academy and check_password(password, academy.password):
-#             return {
-#                 "access": "academy-access-token-placeholder",
-#                 "refresh": "academy-refresh-placeholder",
-#                 "user_type": "academy",
-#                 "name": academy.name,
-#                 "email": academy.email,
-#                 "phone_number": academy.phone_number,
-#                 "profile_image": getattr(academy, "profile_image", None)  
-#             }
-
-#         raise AuthenticationFailed("Invalid email/full name or password.")
-    
-
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.exceptions import AuthenticationFailed
-from django.contrib.auth.hashers import check_password
-from django.contrib.auth import get_user_model
-from .models import Academy
-
-User = get_user_model()
-
-
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         identifier = attrs.get("username")
         password = attrs.get("password")
 
-        # ======== 1️⃣ სცადე შესვლა ჩვეულებრივი User-ით ========
+        
         user = User.objects.filter(email__iexact=identifier).first()
 
-        # თუ იუზერი მოიძებნა სახელით (მაგალითად "John Doe")
+       
         if not user and " " in identifier:
             first_name, last_name = identifier.split(" ", 1)
             user = User.objects.filter(
@@ -224,7 +170,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 last_name__iexact=last_name.strip()
             ).first()
 
-        # თუ იუზერი მოიძებნა და პაროლი ემთხვევა
+        #
         if user and user.check_password(password):
             attrs["username"] = user.email
             data = super().validate(attrs)
@@ -243,11 +189,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             })
             return data
 
-        # ======== 2️⃣ სცადე შესვლა Academy-თი ========
+        
         academy = Academy.objects.filter(email__iexact=identifier).first()
 
         if academy and check_password(password, academy.password):
-            # თუ შენი Academy მოდელი არ არის User-ზე დაფუძნებული, შევქმნათ/გამოვიყენოთ dummy user
+            
             dummy_user, _ = User.objects.get_or_create(
                 username=academy.email,
                 defaults={
@@ -269,7 +215,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "profile_image": getattr(academy, "profile_image", None)
             }
 
-        # ======== 3️⃣ თუ ვერ მოიძებნა არცერთი ========
+       
         raise AuthenticationFailed("Invalid email/full name or password.")
 
 
@@ -314,7 +260,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 
-User = get_user_model()
+
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(source="profile.phone_number", allow_blank=True, required=False)
@@ -381,7 +327,6 @@ class AcademyUpdateSerializer(serializers.ModelSerializer):
 
 #------------ User Change Password -------------------
 
-User = get_user_model()
 
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True)
@@ -444,3 +389,61 @@ class SocialLinksSerializer(serializers.ModelSerializer):
         model = SocialLinks
         fields = "__all__"
         read_only_fields = ["user", "academy"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+# class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+#     def validate(self, attrs):
+#         identifier = attrs.get("username")
+#         password = attrs.get("password")
+
+#         user = None
+#         user = User.objects.filter(email__iexact=identifier).first()
+
+#         if not user and " " in identifier:
+#             first_name, last_name = identifier.split(" ", 1)
+#             user = User.objects.filter(
+#                 first_name__iexact=first_name.strip(),
+#                 last_name__iexact=last_name.strip()
+#             ).first()
+
+#         if user and user.check_password(password):
+#             attrs["username"] = user.email
+#             data = super().validate(attrs)
+#             profile = getattr(user, "profile", None)
+#             phone_number = getattr(profile, "phone_number", None)
+#             profile_image_url = profile.profile_image.url if profile and profile.profile_image else None
+
+#             data.update({
+#                 "first_name": user.first_name,
+#                 "last_name": user.last_name,
+#                 "email": user.email,
+#                 "phone_number": phone_number,
+#                 "profile_image": profile_image_url,
+#                 "user_type": "user"
+#             })
+#             return data
+
+#         academy = Academy.objects.filter(email__iexact=identifier).first()
+#         if academy and check_password(password, academy.password):
+#             return {
+#                 "access": "academy-access-token-placeholder",
+#                 "refresh": "academy-refresh-placeholder",
+#                 "user_type": "academy",
+#                 "name": academy.name,
+#                 "email": academy.email,
+#                 "phone_number": academy.phone_number,
+#                 "profile_image": getattr(academy, "profile_image", None)  
+#             }
+
+#         raise AuthenticationFailed("Invalid email/full name or password.")
