@@ -344,7 +344,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ["id", "phone_number", "profile_image", "profile_image_url"]
+        fields = ["id", "phone_number", "profile_image", "profile_image_url","about_me"]
 
     def get_profile_image_url(self, obj):
         if obj.profile_image:
