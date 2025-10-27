@@ -349,16 +349,24 @@ class AcademyChangePasswordSerializer(serializers.Serializer):
 #------------------- person information -----------------
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    profile_image_url = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = UserProfile
-        fields = ["id", "phone_number", "profile_image"]
+        fields = ["id", "phone_number", "profile_image", "profile_image_url"]
+
+    def get_profile_image_url(self, obj):
+        if obj.profile_image:
+            return obj.profile_image.url
+        return None
 
     def update(self, instance, validated_data):
         instance.phone_number = validated_data.get("phone_number", instance.phone_number)
-        if validated_data.get("profile_image"):
-            instance.profile_image = validated_data.get("profile_image")
+        if "profile_image" in validated_data:
+            instance.profile_image = validated_data["profile_image"]
         instance.save()
         return instance
+
     
 
 
