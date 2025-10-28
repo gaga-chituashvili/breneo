@@ -9,14 +9,15 @@ from .models import (
     DynamicSoftSkillsQuestion,
     SkillTestResult,TemporaryAcademy,SocialLinks
 )
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth import authenticate,get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
 from .models import Academy,UserProfile,TemporaryUser
-from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth.hashers import make_password, check_password
-from rest_framework_simplejwt.tokens import RefreshToken
 User = get_user_model()
+
 
 # --------------------------
 # Assessment & Badge
@@ -153,6 +154,7 @@ class TemporaryAcademyRegisterSerializer(serializers.ModelSerializer):
 # Token Serializer
 # --------------------------
 
+User = get_user_model()
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
@@ -169,14 +171,21 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 last_name__iexact=last_name.strip()
             ).first()
 
+        # ======================= USER LOGIN ==========================
         if user and user.check_password(password):
             attrs["username"] = user.email
             data = super().validate(attrs)
+
+            refresh = self.get_token(user)
+            access = refresh.access_token
+
             profile = getattr(user, "profile", None)
             phone_number = getattr(profile, "phone_number", None)
             profile_image_url = profile.profile_image.url if profile and profile.profile_image else None
 
             data.update({
+                "access": str(access),
+                "refresh": str(refresh),
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "email": user.email,
@@ -186,19 +195,30 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             })
             return data
 
+        # ====================== ACADEMY LOGIN =========================
         academy = Academy.objects.filter(email__iexact=identifier).first()
+
         if academy and check_password(password, academy.password):
+            refresh = RefreshToken.for_user(academy)
+            access = refresh.access_token
+
+            profile_image_url = getattr(academy, "profile_image", None)
+            if profile_image_url and hasattr(profile_image_url, "url"):
+                profile_image_url = profile_image_url.url
+
             return {
-                "access": "academy-access-token-placeholder",
-                "refresh": "academy-refresh-placeholder",
+                "access": str(access),
+                "refresh": str(refresh),
                 "user_type": "academy",
                 "name": academy.name,
                 "email": academy.email,
                 "phone_number": academy.phone_number,
-                "profile_image": getattr(academy, "profile_image", None)  
+                "profile_image": profile_image_url,
             }
 
+        # ====================== INVALID LOGIN =========================
         raise AuthenticationFailed("Invalid email/full name or password.")
+
 
 
 class VerifyCodeSerializer(serializers.Serializer):
