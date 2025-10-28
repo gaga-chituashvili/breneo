@@ -364,7 +364,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ["id", "phone_number", "profile_image", "profile_image_url","about_me"]
+        fields = ["id", "phone_number", "profile_image", "profile_image_url", "about_me"]
 
     def get_profile_image_url(self, obj):
         if obj.profile_image:
@@ -373,13 +373,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         instance.phone_number = validated_data.get("phone_number", instance.phone_number)
+        
+        instance.about_me = validated_data.get("about_me", instance.about_me)
+        
         if "profile_image" in validated_data:
             instance.profile_image = validated_data["profile_image"]
         instance.save()
         return instance
-
-
-
 
 
 
