@@ -35,6 +35,10 @@ from .serializers import (
     SetNewPasswordSerializer
 )
 from django.contrib.auth import get_user_model
+User = get_user_model()
+from .serializers import ChangePasswordSerializer
+
+
 
 
 
@@ -1224,46 +1228,63 @@ class VerifyCodeView(APIView):
 # --------------------------
 
 
-class UserProfileUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
+
+class UserProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get(self, request):
         user = request.user
-        profile = getattr(user, "profile", None)
+        profile, _ = UserProfile.objects.get_or_create(user=user)
         profile_image_url = None
-        phone = None
-        if profile:
-            phone = profile.phone_number
-            if profile.profile_image:
-                profile_image_url = request.build_absolute_uri(profile.profile_image.url)
+
+        if profile.profile_image:
+            profile_image_url = request.build_absolute_uri(profile.profile_image.url)
 
         return Response({
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
-            "phone_number": phone,
+            "phone_number": profile.phone_number,
+            "about_me": profile.about_me,
             "profile_image": profile_image_url
         })
 
     def patch(self, request):
-        user = request.user
-        serializer = UserProfileUpdateSerializer(user, data=request.data, partial=True, context={"request": request})
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        serializer = UserProfileSerializer(
+            profile, data=request.data, partial=True, context={"request": request}
+        )
+
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.save()
 
-        # reload profile image url
-        profile = getattr(user, "profile", None)
-        profile_image_url = request.build_absolute_uri(profile.profile_image.url) if profile and profile.profile_image else None
+        profile_image_url = (
+            request.build_absolute_uri(profile.profile_image.url)
+            if profile.profile_image else None
+        )
 
         return Response({
             "message": "Profile updated successfully.",
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email,
-            "phone_number": profile.phone_number if profile else None,
+            "first_name": request.user.first_name,
+            "last_name": request.user.last_name,
+            "email": request.user.email,
+            "phone_number": profile.phone_number,
+            "about_me": profile.about_me,
             "profile_image": profile_image_url
         }, status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        if profile.profile_image:
+            profile.profile_image.delete(save=True)
+            profile.profile_image = None
+            profile.save()
+            return Response({"message": "Profile image deleted successfully"}, status=status.HTTP_200_OK)
+        return Response({"error": "No image to delete"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class AcademyProfileUpdateView(APIView):
@@ -1476,8 +1497,7 @@ class SetNewPasswordView(APIView):
 
 #----------- User Change Password ----------------
 
-User = get_user_model()
-from .serializers import ChangePasswordSerializer
+
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1512,44 +1532,6 @@ class AcademyChangePasswordView(APIView):
             academy.save()
             return Response({"message": "Password changed successfully."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-
-
-#----------------- Photo Upload ---------------
-
-class UserProfileView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-    parser_classes = (MultiPartParser, FormParser)
-
-   
-    def get(self, request):
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
-        serializer = UserProfileSerializer(profile)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    
-    def patch(self, request):
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
-        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                "message": "Profile updated successfully.",
-                **serializer.data
-            }, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    
-    def delete(self, request):
-        profile = request.user.profile
-        if profile.profile_image:
-            profile.profile_image.delete(save=True)
-            profile.profile_image = None
-            profile.save()
-            return Response({"message": "Profile image deleted successfully"})
-        return Response({"error": "No image to delete"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 

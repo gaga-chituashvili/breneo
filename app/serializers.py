@@ -361,7 +361,7 @@ class AcademyChangePasswordSerializer(serializers.Serializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     profile_image_url = serializers.SerializerMethodField(read_only=True)
-    about_me = serializers.SerializerMethodField()  
+    about_me = serializers.CharField(allow_blank=True, allow_null=True, required=False)
 
     class Meta:
         model = UserProfile
