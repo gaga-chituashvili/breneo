@@ -3,7 +3,7 @@ from .models import (
     Assessment, AssessmentSession, Badge,
     Job, Skill, UserSkill, Course,
     DynamicTechQuestion,
-    CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion,SkillScore,Academy,UserProfile,TemporaryUser,TemporaryAcademy,SkillTestResult
+    CareerCategory, CareerQuestion, CareerOption,DynamicSoftSkillsQuestion,SkillScore,Academy,UserProfile,TemporaryUser,TemporaryAcademy,SkillTestResult,SocialLinks
 )
 admin.site.register(Assessment)
 admin.site.register(Badge)
@@ -14,6 +14,7 @@ admin.site.register(Course)
 admin.site.register(UserProfile)
 admin.site.register(TemporaryUser)
 admin.site.register(TemporaryAcademy)
+
 
 
 @admin.register(DynamicTechQuestion)
@@ -80,5 +81,7 @@ class AcademyAdmin(admin.ModelAdmin):
 
 
 
-
-
+@admin.register(SocialLinks)
+class SocialLinks(admin.ModelAdmin):
+    list_display = ('user', 'academy')
+    search_fields = ('user', 'academy')
