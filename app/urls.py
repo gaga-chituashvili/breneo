@@ -8,7 +8,7 @@ from .views import (
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
     StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,
     CareerRoadmapAPI, save_test_results, get_user_results,
-    RegisterView,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView,AcademyProfileUpdateView,ChangePasswordView,AcademyChangePasswordView,UserProfileView,SocialLinksView
+    RegisterView,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView,AcademyProfileUpdateView,ChangePasswordView,AcademyChangePasswordView,UserProfileView,AcademyLoginView
     
 )
 from django.conf import settings
@@ -41,10 +41,10 @@ urlpatterns = [
     # ---------------- Authentication ----------------
     path("api/register/", RegisterView.as_view(), name="register"),
     path("api/login/", CustomTokenObtainPairView.as_view(), name="login"),
-    path("api/refresh/", TokenRefreshView.as_view(), name="refresh"),
-    path("api/academy/profile/", AcademyProfileUpdateView.as_view(), name="academy-profile"),
-    path("api/academy/register/", TemporaryAcademyRegisterView.as_view(), name="academy-register"),
     path("api/verify-code/", VerifyCodeView.as_view(), name="verify-code"),
+    path("api/refresh/", TokenRefreshView.as_view(), name="refresh"),
+    path("api/academy/login/", AcademyLoginView.as_view(), name="academy-login"),
+    path("api/academy/register/", TemporaryAcademyRegisterView.as_view(), name="academy-register"),
     path('api/verify-academy-email/', TemporaryAcademyVerifyView.as_view(),name='verify-academy-email'),
 
     #------------- recovery password ---------------
@@ -58,10 +58,9 @@ urlpatterns = [
     
      #-------------- Profile ----------------
     path("api/profile/", UserProfileView.as_view(), name="user-profile"),
+    path("api/academy/profile/", AcademyProfileUpdateView.as_view(), name="academy-profile"),
 
-    #---------------- Social -----------------
-    path("api/social-links/", SocialLinksView.as_view(), name="social-links"),
-]
+] 
 
 
 if settings.DEBUG:

@@ -23,7 +23,7 @@ from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers
 import time
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password,check_password
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
@@ -37,6 +37,10 @@ from .serializers import (
 from django.contrib.auth import get_user_model
 User = get_user_model()
 from .serializers import ChangePasswordSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+
+
+
 
 
 
@@ -1187,6 +1191,7 @@ class VerifyCodeView(APIView):
                 password=temp_user.password,
                 is_active=True
             )
+
             # UserProfile შექმნა
             UserProfile.objects.create(
                 user=user,
@@ -1208,8 +1213,18 @@ class VerifyCodeView(APIView):
                 temp_academy.delete()
                 return Response({"error": "An academy with this email already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Academy-ის შექმნა
+            # --- User ობიექტის შექმნა აკადემიისთვის ---
+            user = User.objects.create(
+                username=temp_academy.email,
+                email=temp_academy.email,
+                password=temp_academy.password,  # უკვე hashed ფორმით ინახავ
+                first_name=temp_academy.name,
+                is_active=True
+            )
+
+            # --- Academy-ის შექმნა (დაუკავშირე user) ---
             academy = Academy.objects.create(
+                user=user,
                 name=temp_academy.name,
                 email=temp_academy.email,
                 password=temp_academy.password,
@@ -1218,8 +1233,10 @@ class VerifyCodeView(APIView):
                 website=temp_academy.website,
                 is_verified=True
             )
+
             temp_academy.delete()
             return Response({"message": "Academy registered successfully!"}, status=status.HTTP_201_CREATED)
+
 
         
         
@@ -1241,13 +1258,17 @@ class UserProfileView(APIView):
         if profile.profile_image:
             profile_image_url = request.build_absolute_uri(profile.profile_image.url)
 
+        social_links, _ = SocialLinks.objects.get_or_create(user=user)
+        social_data = SocialLinksSerializer(social_links).data
+
         return Response({
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
             "phone_number": profile.phone_number,
             "about_me": profile.about_me,
-            "profile_image": profile_image_url
+            "profile_image": profile_image_url,
+            "social_links": social_data
         })
 
     def patch(self, request):
@@ -1266,6 +1287,9 @@ class UserProfileView(APIView):
             if profile.profile_image else None
         )
 
+        social_links, _ = SocialLinks.objects.get_or_create(user=request.user)
+        social_data = SocialLinksSerializer(social_links).data
+
         return Response({
             "message": "Profile updated successfully.",
             "first_name": request.user.first_name,
@@ -1273,7 +1297,8 @@ class UserProfileView(APIView):
             "email": request.user.email,
             "phone_number": profile.phone_number,
             "about_me": profile.about_me,
-            "profile_image": profile_image_url
+            "profile_image": profile_image_url,
+            "social_links": social_data
         }, status=status.HTTP_200_OK)
 
     def delete(self, request):
@@ -1287,8 +1312,11 @@ class UserProfileView(APIView):
 
 
 
+
+
+
 class AcademyProfileUpdateView(APIView):
-    permission_classes = [IsAuthenticated]  
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_academy(self, request):
         if hasattr(request.user, "email"):
@@ -1298,34 +1326,64 @@ class AcademyProfileUpdateView(APIView):
     def get(self, request):
         academy = self.get_academy(request)
         if not academy:
-            return Response({"error": "Academy not found or not authenticated as academy."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Academy not found or not authenticated as academy."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+       
+        social_links, _ = SocialLinks.objects.get_or_create(academy=academy)
+        social_data = SocialLinksSerializer(social_links).data
 
         return Response({
             "name": academy.name,
             "email": academy.email,
             "phone_number": academy.phone_number,
             "description": academy.description,
-            "website": academy.website
-        })
+            "website": academy.website,
+            "is_verified": academy.is_verified,
+            "created_at": academy.created_at,
+            "social_links": social_data
+        }, status=status.HTTP_200_OK)
 
     def patch(self, request):
         academy = self.get_academy(request)
         if not academy:
-            return Response({"error": "Academy not found or not authenticated as academy."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Academy not found or not authenticated as academy."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        serializer = AcademyUpdateSerializer(academy, data=request.data, partial=True, context={"request": request})
+        serializer = AcademyUpdateSerializer(
+            academy, data=request.data, partial=True, context={"request": request}
+        )
+
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.save()
+
+        
+        social_links, _ = SocialLinks.objects.get_or_create(academy=academy)
+        social_serializer = SocialLinksSerializer(
+            social_links, data=request.data.get("social_links", {}), partial=True
+        )
+        if social_serializer.is_valid():
+            social_serializer.save()
 
         return Response({
             "message": "Academy profile updated successfully.",
-            "name": academy.name,
-            "email": academy.email,
-            "phone_number": academy.phone_number,
-            "description": academy.description,
-            "website": academy.website
+            "academy": {
+                "name": academy.name,
+                "email": academy.email,
+                "phone_number": academy.phone_number,
+                "description": academy.description,
+                "website": academy.website,
+                "is_verified": academy.is_verified,
+            },
+            "social_links": SocialLinksSerializer(social_links).data
         }, status=status.HTTP_200_OK)
+
 
 
 # --------------------------
@@ -1333,6 +1391,71 @@ class AcademyProfileUpdateView(APIView):
 # --------------------------
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+
+class AcademyLoginView(APIView):
+    def post(self, request):
+        identifier = request.data.get("email")  
+        password = request.data.get("password")
+
+        if not identifier or not password:
+            return Response(
+                {"error": "Email (or Name) and password are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        
+        academy = (
+            Academy.objects.filter(email__iexact=identifier).first() or
+            Academy.objects.filter(name__iexact=identifier).first()
+        )
+
+        if not academy:
+            return Response(
+                {"error": "Academy not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+       
+        if not check_password(password, academy.password):
+            return Response(
+                {"error": "Invalid credentials"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+       
+        if not academy.user:
+            user, _ = User.objects.get_or_create(
+                username=academy.email,
+                defaults={
+                    "email": academy.email,
+                    "password": academy.password,  
+                    "first_name": academy.name,
+                    "is_active": True,
+                }
+            )
+            academy.user = user
+            academy.save()
+
+        refresh = RefreshToken.for_user(academy.user)
+        access = refresh.access_token
+
+        access["academy_email"] = academy.email
+        access["academy_name"] = academy.name
+
+        return Response({
+            "message": "Academy login successful",
+            "access": str(access),
+            "refresh": str(refresh),
+            "academy": {
+                "name": academy.name,
+                "email": academy.email,
+                "phone_number": academy.phone_number,
+                "website": academy.website,
+                "description": academy.description,
+            }
+        }, status=status.HTTP_200_OK)
+
 
 # --------------------------
 # Academy Registration
@@ -1537,25 +1660,4 @@ class AcademyChangePasswordView(APIView):
 
 
 
-#------------------- Social -------------------------
 
-
-
-class SocialLinksView(generics.RetrieveUpdateAPIView):
-    serializer_class = SocialLinksSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_object(self):
-        user = self.request.user
-
-        
-        if hasattr(user, "userprofile"): 
-            obj, created = SocialLinks.objects.get_or_create(user=user)
-            return obj
-
-        
-        elif hasattr(user, "academy"): 
-            obj, created = SocialLinks.objects.get_or_create(academy=user.academy)
-            return obj
-
-        return None

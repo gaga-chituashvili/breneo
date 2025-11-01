@@ -173,6 +173,7 @@ class SkillTestResult(models.Model):
 
 
 class Academy(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=100,default="Unknown Academy")
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=20)
