@@ -11,7 +11,6 @@ admin.site.register(Job)
 admin.site.register(Skill)
 admin.site.register(UserSkill)
 admin.site.register(Course)
-admin.site.register(UserProfile)
 admin.site.register(TemporaryUser)
 admin.site.register(TemporaryAcademy)
 
@@ -72,13 +71,19 @@ class SkillTestResultAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at',)
     ordering = ('-created_at',)
 
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('id','user', 'phone_number','profile_image', 'about_me')
+    readonly_fields = ("id",)
+    fields = ('id', 'user', 'phone_number', 'profile_image', 'about_me')
 
 
 @admin.register(Academy)
 class AcademyAdmin(admin.ModelAdmin):
-    list_display = ('name', 'email', 'phone_number','password','website', 'created_at')
+    list_display = ('id', 'name', 'email', 'phone_number', 'website', 'created_at')
     search_fields = ('name', 'email')
-
+    readonly_fields = ('id', 'created_at')  
+    fields = ('id', 'name', 'email', 'phone_number', 'website')
 
 
 @admin.register(SocialLinks)

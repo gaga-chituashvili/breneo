@@ -1262,6 +1262,7 @@ class UserProfileView(APIView):
         social_data = SocialLinksSerializer(social_links).data
 
         return Response({
+            "id": user.id,
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
@@ -1317,6 +1318,7 @@ class UserProfileView(APIView):
 
 class AcademyProfileUpdateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_academy(self, request):
         if hasattr(request.user, "email"):
@@ -1326,16 +1328,18 @@ class AcademyProfileUpdateView(APIView):
     def get(self, request):
         academy = self.get_academy(request)
         if not academy:
-            return Response(
-                {"error": "Academy not found or not authenticated as academy."},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Academy not found"}, status=status.HTTP_404_NOT_FOUND)
 
-       
         social_links, _ = SocialLinks.objects.get_or_create(academy=academy)
         social_data = SocialLinksSerializer(social_links).data
 
+        profile_image_url = (
+            request.build_absolute_uri(academy.profile_image.url)
+            if academy.profile_image else None
+        )
+
         return Response({
+            "id": academy.id,
             "name": academy.name,
             "email": academy.email,
             "phone_number": academy.phone_number,
@@ -1343,27 +1347,28 @@ class AcademyProfileUpdateView(APIView):
             "website": academy.website,
             "is_verified": academy.is_verified,
             "created_at": academy.created_at,
+            "profile_image": profile_image_url,
             "social_links": social_data
-        }, status=status.HTTP_200_OK)
+        })
 
     def patch(self, request):
         academy = self.get_academy(request)
         if not academy:
-            return Response(
-                {"error": "Academy not found or not authenticated as academy."},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Academy not found"}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = AcademyUpdateSerializer(
             academy, data=request.data, partial=True, context={"request": request}
         )
-
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         serializer.save()
 
-        
+        profile_image_url = (
+            request.build_absolute_uri(academy.profile_image.url)
+            if academy.profile_image else None
+        )
+
         social_links, _ = SocialLinks.objects.get_or_create(academy=academy)
         social_serializer = SocialLinksSerializer(
             social_links, data=request.data.get("social_links", {}), partial=True
@@ -1380,9 +1385,11 @@ class AcademyProfileUpdateView(APIView):
                 "description": academy.description,
                 "website": academy.website,
                 "is_verified": academy.is_verified,
+                "profile_image": profile_image_url,
             },
             "social_links": SocialLinksSerializer(social_links).data
         }, status=status.HTTP_200_OK)
+
 
 
 

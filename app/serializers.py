@@ -258,10 +258,11 @@ class SetNewPasswordSerializer(serializers.Serializer):
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(source="profile.phone_number", allow_blank=True, required=False)
     profile_image = serializers.ImageField(source="profile.profile_image", allow_null=True, required=False)
+    id = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "phone_number", "profile_image"]
+        fields = ["id","first_name", "last_name", "email", "phone_number", "profile_image"]
         extra_kwargs = {
             "first_name": {"required": False},
             "last_name": {"required": False},
@@ -295,25 +296,26 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
 
 
 class AcademyUpdateSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
     class Meta:
         model = Academy
-        fields = ["name", "email", "phone_number", "description", "website"]
+        fields = ["id","name", "email", "phone_number", "description", "website", "profile_image"]
         extra_kwargs = {
             "name": {"required": False},
             "email": {"required": False},
             "phone_number": {"required": False},
             "description": {"required": False},
             "website": {"required": False},
+            "profile_image": {"required": False},
         }
 
     def validate_email(self, value):
-        request = self.context.get("request")
-        academy = getattr(request, "academy", None) 
         instance = getattr(self, "instance", None)
         qs = Academy.objects.exclude(pk=instance.pk) if instance else Academy.objects.all()
         if qs.filter(email__iexact=value).exists():
             raise serializers.ValidationError("this mail already taken")
         return value
+
 
 
 

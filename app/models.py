@@ -182,6 +182,15 @@ class Academy(models.Model):
     website = models.URLField(blank=True, null=True) 
     created_at = models.DateTimeField(auto_now_add=True) 
     is_verified = models.BooleanField(default=False)
+    profile_image = models.ImageField(
+        storage=MediaCloudinaryStorage(),
+        upload_to="academy_pics/",
+        blank=True,
+        null=True
+    )
+
+    def __str__(self):
+        return self.name
     
 
 
