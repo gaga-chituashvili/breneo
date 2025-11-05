@@ -80,10 +80,10 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 @admin.register(Academy)
 class AcademyAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'email', 'phone_number', 'website', 'created_at')
+    list_display = ('id', 'name', 'email', 'phone_number', 'profile_image', 'website', 'created_at')
     search_fields = ('name', 'email')
-    readonly_fields = ('id', 'created_at')  
-    fields = ('id', 'name', 'email', 'phone_number', 'website')
+    readonly_fields = ('id', 'created_at')
+    fields = ('id', 'name', 'email', 'phone_number', 'profile_image', 'website') 
 
 
 @admin.register(SocialLinks)
