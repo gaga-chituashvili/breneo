@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile,PasswordResetCode,SocialLinks
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer,UserProfileUpdateSerializer, AcademyUpdateSerializer,AcademyChangePasswordSerializer,SocialLinksSerializer
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer,UserProfileUpdateSerializer, AcademyUpdateSerializer,AcademyChangePasswordSerializer,SocialLinksSerializer,AcademyDetailSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
@@ -38,7 +38,6 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 from .serializers import ChangePasswordSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-
 
 
 
@@ -1666,5 +1665,91 @@ class AcademyChangePasswordView(APIView):
 
 
 
+# -----------------User Detail View ------------------
 
 
+class UserProfileDetailView(APIView):
+    def get(self, request, user_id):
+        try:
+            profile = UserProfile.objects.get(id=user_id)
+        except UserProfile.DoesNotExist:
+            return Response({"error": "User profile not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        serializer = UserProfileSerializer(profile, context={"request": request})
+
+        
+        last_result = SkillTestResult.objects.filter(user=profile.user).order_by('-created_at').first()
+        final_role = last_result.final_role if last_result else None
+        skills_json = last_result.skills_json if last_result else {}
+
+        
+        user_skills = UserSkill.objects.filter(user=profile.user)
+        courses_set = set()
+        for job in Job.objects.all():
+            match_data = calculate_match(user_skills, job)
+            missing = match_data.get("missing_skills", [])
+            courses = Course.objects.filter(skills_taught__name__in=missing).values_list("title", flat=True)
+            courses_set.update(courses)
+
+        recommended_courses = list(courses_set)
+
+        
+        recommended_jobs = []
+        if final_role:
+            jobs_qs = Job.objects.filter(title__icontains=final_role)
+            for job in jobs_qs:
+                recommended_jobs.append({
+                    "id": job.id,
+                    "title": job.title,
+                    "description": job.description,
+                    "salary_range": f"${job.salary_min:,} - ${job.salary_max:,}",
+                    "time_to_ready": job.time_to_ready,
+                })
+
+        return Response({
+            "profile_type": "user",
+            "profile_data": serializer.data,
+            "final_role": final_role,
+            "recommended_courses": recommended_courses,
+            "recommended_jobs": recommended_jobs
+        }, status=status.HTTP_200_OK)
+
+
+
+
+
+# ----------------- Academy Detail View ------------------
+
+class AcademyDetailView(APIView):
+    def get(self, request, academy_id):
+        try:
+            academy = Academy.objects.get(id=academy_id)
+        except Academy.DoesNotExist:
+            return Response({"error": "Academy not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = AcademyDetailSerializer(academy, context={"request": request})
+
+       
+        students = UserProfile.objects.filter(user__skilltestresult__isnull=False).distinct()
+
+        
+        academy_courses = Course.objects.filter(academy=academy)
+
+       
+        all_user_skills = UserSkill.objects.filter(user__in=[s.user for s in students])
+        recommended_jobs = []
+        for job in Job.objects.all():
+            match_data = calculate_match(all_user_skills, job)
+            if match_data["match_percentage"] >= 40: 
+                recommended_jobs.append(match_data)
+
+        
+        recommended_courses = list(academy_courses.values_list("title", flat=True))
+
+        return Response({
+            "profile_type": "academy",
+            "profile_data": serializer.data,
+            "recommended_courses": recommended_courses,
+            "recommended_jobs": recommended_jobs
+        }, status=status.HTTP_200_OK)

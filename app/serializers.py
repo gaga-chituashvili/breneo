@@ -7,7 +7,7 @@ from .models import (
     CareerQuestion,
     CareerOption,
     DynamicSoftSkillsQuestion,
-    SkillTestResult,TemporaryAcademy,SocialLinks
+    SkillTestResult,TemporaryAcademy,SocialLinks,Academy,UserProfile,TemporaryUser,Course
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed
@@ -17,6 +17,9 @@ from django.contrib.auth.models import User
 from .models import Academy,UserProfile,TemporaryUser
 from django.contrib.auth.hashers import make_password, check_password
 User = get_user_model()
+
+
+
 
 
 # --------------------------
@@ -113,6 +116,115 @@ class SkillTestResultSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'final_role', 'total_score', 'skills_json', 'created_at']
         read_only_fields = ['user', 'created_at']
 
+
+
+# ---------- User Detail ---------------------
+
+class UserCourseMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ["id", "title"]
+
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    courses = UserCourseMiniSerializer(many=True, read_only=True, source="user_courses")
+    social_links = serializers.SerializerMethodField()
+    profile_image_url = serializers.SerializerMethodField()
+    about_me = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "about_me",
+            "profile_image_url",
+            "courses",
+            "social_links",
+        ]
+
+    def get_profile_image_url(self, obj):
+        """აბრუნებს იუზერის პროფილის ფოტოს URL-ს."""
+        profile = getattr(obj, "profile", None)
+        if profile and profile.profile_image:
+            try:
+                request = self.context.get("request")
+                return (
+                    request.build_absolute_uri(profile.profile_image.url)
+                    if request
+                    else profile.profile_image.url
+                )
+            except:
+                return None
+        return None
+
+    def get_social_links(self, obj):
+        if hasattr(obj, "social_links"):
+            return {
+                "github": obj.social_links.github,
+                "linkedin": obj.social_links.linkedin,
+                "facebook": obj.social_links.facebook,
+                "instagram": obj.social_links.instagram,
+                "dribbble": obj.social_links.dribbble,
+                "behance": obj.social_links.behance,
+            }
+        return {}
+
+    def get_about_me(self, obj):
+        profile = getattr(obj, "profile", None)
+        return getattr(profile, "about_me", None)
+
+
+#--------- Academy Detail ---------------------
+
+
+
+class CourseMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ["id", "title"]
+
+class AcademyDetailSerializer(serializers.ModelSerializer):
+    courses = CourseMiniSerializer(many=True, read_only=True)
+    social_links = serializers.SerializerMethodField()
+    profile_image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Academy
+        fields = [
+            "id",
+            "name",
+            "email",
+            "phone_number",
+            "description",
+            "website",
+            "profile_image_url",
+            "courses",
+            "social_links",
+        ]
+
+    def get_profile_image_url(self, obj):
+        if obj.profile_image:
+            try:
+                request = self.context.get("request")
+                return request.build_absolute_uri(obj.profile_image.url) if request else obj.profile_image.url
+            except:
+                return None
+        return None
+
+    def get_social_links(self, obj):
+        if hasattr(obj, "social_links"):
+            return {
+                "github": obj.social_links.github,
+                "linkedin": obj.social_links.linkedin,
+                "facebook": obj.social_links.facebook,
+                "instagram": obj.social_links.instagram,
+            }
+        return {}
+    
+# ------- User Registration ---------------------
 
 
 class RegisterSerializer(serializers.ModelSerializer):

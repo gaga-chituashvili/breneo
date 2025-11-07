@@ -65,10 +65,21 @@ class Job(models.Model):
     time_to_ready = models.CharField(max_length=50, default="Not specified")
     required_skills = models.ManyToManyField(Skill, related_name="jobs")
 
+
+
 class Course(models.Model):
+    academy = models.ForeignKey(
+        'Academy', on_delete=models.CASCADE, related_name="courses", null=True, blank=True
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="user_courses", null=True, blank=True
+    )
     title = models.CharField(max_length=200)
     skills_taught = models.ManyToManyField(Skill, related_name="courses")
 
+    def __str__(self):
+        owner = self.academy.name if self.academy else (self.user.get_full_name() if self.user else "Unknown")
+        return f"{self.title} by {owner}"
 
 
 

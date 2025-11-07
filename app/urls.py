@@ -8,7 +8,7 @@ from .views import (
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
     StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,
     CareerRoadmapAPI, save_test_results, get_user_results,
-    RegisterView,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView,AcademyProfileUpdateView,ChangePasswordView,AcademyChangePasswordView,UserProfileView,AcademyLoginView
+    RegisterView,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView,AcademyProfileUpdateView,ChangePasswordView,AcademyChangePasswordView,UserProfileView,AcademyLoginView,AcademyDetailView,UserProfileDetailView
     
 )
 from django.conf import settings
@@ -59,6 +59,10 @@ urlpatterns = [
      #-------------- Profile ----------------
     path("api/profile/", UserProfileView.as_view(), name="user-profile"),
     path("api/academy/profile/", AcademyProfileUpdateView.as_view(), name="academy-profile"),
+
+    # -------------Details --------------
+    path('api/user/<int:user_id>/', UserProfileDetailView.as_view(), name='user-public-profile'),
+    path("api/academy/<int:academy_id>/", AcademyDetailView.as_view(), name="academy-detail"),
 
 ] 
 
