@@ -3,17 +3,13 @@ from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
-from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile,PasswordResetCode,SocialLinks
-from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer,UserProfileUpdateSerializer, AcademyUpdateSerializer,AcademyChangePasswordSerializer,SocialLinksSerializer,AcademyDetailSerializer
+from .models import Assessment, Badge, AssessmentSession, UserSkill, Job, Course, DynamicTechQuestion,Skill,CareerCategory,DynamicSoftSkillsQuestion,SkillScore,SkillTestResult,TemporaryUser, UserProfile,PasswordResetCode,SocialLinks,CareerQuestion,Academy,UserProfile,TemporaryAcademy,SavedCourse, SavedJob
+from .serializers import QuestionTechSerializer,CareerCategorySerializer,QuestionSoftSkillsSerializer,CustomTokenObtainPairSerializer,SkillTestResultSerializer,RegisterSerializer,TemporaryAcademyRegisterSerializer,UserProfileUpdateSerializer, AcademyUpdateSerializer,AcademyChangePasswordSerializer,SocialLinksSerializer,AcademyDetailSerializer,CareerQuestionSerializer,UserProfileSerializer
 from django.contrib.auth.models import User
 import os, requests, random
 from rest_framework import status
 from rest_framework import generics
-from .models import CareerQuestion,Academy,UserProfile,TemporaryAcademy
-from .serializers import CareerQuestionSerializer,UserProfileSerializer
 import json
-import json
-import joblib
 import pandas as pd
 from groq import Groq
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -44,9 +40,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 
 
-
-
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # ---------------- Home ----------------
@@ -60,31 +53,33 @@ class DashboardProgressAPI(APIView):
 
     def get(self, request):
         user = request.user
-        if not user:
-            return Response({"error": "No demo user"}, status=404)
 
-        # 🟢 Use saved skill test results
+        
         results = SkillTestResult.objects.filter(user=user).order_by('-created_at')
         last_result = results.first()
 
         skill_summary = last_result.skills_json if last_result else {}
         final_role = last_result.final_role if last_result else None
+        total_score = last_result.total_score if last_result else None
 
-        # Assessments & Badges
         badges = Badge.objects.filter(user=user)
 
         return Response({
-            "user": {"username": user.username, "skills": skill_summary},
+            "user": {
+                "username": user.username,
+                "skills": skill_summary or {}
+            },
             "progress": {
                 "total_tests": results.count(),
-                "last_total_score": last_result.total_score if last_result else None,
+                "last_total_score": total_score,
                 "total_badges": badges.count(),
             },
             "last_result": {
                 "final_role": final_role,
-                "total_score": last_result.total_score if last_result else None,
+                "total_score": total_score,
             }
-        })
+        }, status=200)
+
 
 # ---------------- Recommended Jobs ----------------
 
@@ -94,18 +89,25 @@ class RecommendedJobsAPI(APIView):
 
     def get(self, request):
         user = request.user
-        if not user:
-            return Response({"error": "No demo user"}, status=404)
 
-        # 🟢 Use last SkillTestResult
         last_result = SkillTestResult.objects.filter(user=user).order_by('-created_at').first()
-        if not last_result or not last_result.final_role:
-            return Response({"error": "No completed skill test found"}, status=400)
+        if not last_result:
+            return Response({
+                "final_role": None,
+                "recommended_jobs": []
+            }, status=200)
 
-        final_role = last_result.final_role
-        skills_json = last_result.skills_json
+        final_role = last_result.final_role or None
+        skills_json = last_result.skills_json or {}
 
-        # Convert skills_json to queryset-like list for calculate_match()
+        
+        if not final_role and not skills_json:
+            return Response({
+                "final_role": None,
+                "recommended_jobs": []
+            }, status=200)
+
+       
         user_skills = []
         for skill_name, status in skills_json.items():
             skill_obj, _ = Skill.objects.get_or_create(name=skill_name)
@@ -113,31 +115,21 @@ class RecommendedJobsAPI(APIView):
             user_skills.append(UserSkill(user=user, skill=skill_obj, points=points))
 
         jobs_data = []
-        jobs_qs = Job.objects.filter(role__iexact=final_role)
-        if not jobs_qs.exists():
-            jobs_qs = Job.objects.all()
+        jobs_qs = Job.objects.filter(role__iexact=final_role) if final_role else Job.objects.all()
 
         for job in jobs_qs:
+            match_data = calculate_match(user_skills, job)
             try:
-                match_data = calculate_match(user_skills, job)
-
-                # AI Salary Range
-                try:
-                    ai_salary = fetch_salary_from_groq(job.title, location="Georgia")
-                except Exception:
-                    ai_salary = "$0 - $0"
-
-                match_data["ai_salary_range"] = ai_salary
-                jobs_data.append(match_data)
-
-            except Exception as e:
-                print(f"Error processing job {job.title}: {e}")
-                continue
+                ai_salary = fetch_salary_from_groq(job.title, location="Georgia")
+            except Exception:
+                ai_salary = "$0 - $0"
+            match_data["ai_salary_range"] = ai_salary
+            jobs_data.append(match_data)
 
         return Response({
             "final_role": final_role,
             "recommended_jobs": jobs_data
-        })
+        }, status=200)
 
     
 # ---------------- Recommended Courses API ----------------
@@ -147,35 +139,53 @@ class RecommendedCoursesAPI(APIView):
 
     def get(self, request):
         user = request.user
-        if not user:
-            return Response({"error": "No demo user"}, status=404)
 
         user_skills = UserSkill.objects.filter(user=user)
+        if not user_skills.exists():
+            return Response({"recommended_courses": []}, status=200)
+
         courses_set = set()
         for job in Job.objects.all():
             match_data = calculate_match(user_skills, job)
             missing = match_data.get("missing_skills", [])
-            courses = Course.objects.filter(skills_taught__name__in=missing).values_list("title", flat=True)
+            if not missing:
+                continue
+            courses = Course.objects.filter(
+                skills_taught__name__in=missing
+            ).values_list("title", flat=True)
             courses_set.update(courses)
 
-        return Response({"recommended_courses": list(courses_set)})
+        return Response({"recommended_courses": list(courses_set)}, status=200)
+        
 
-# ---------------- Career Path API ----------------
+        
 def calculate_match(user_skills_qs, job):
+    if not user_skills_qs.exists():
+        return {
+            "job_title": job.title,
+            "description": job.description or "",
+            "match_percentage": 0,
+            "have_skills": [],
+            "missing_skills": list(job.required_skills.values_list("name", flat=True)),
+            "salary_range": f"${job.salary_min:,} - ${job.salary_max:,}" if job.salary_min else "",
+            "time_to_ready": job.time_to_ready or "",
+        }
+
     user_skill_names = set(user_skills_qs.values_list("skill__name", flat=True))
     required = set(job.required_skills.values_list("name", flat=True))
+
     overlap = required.intersection(user_skill_names)
     missing = required - user_skill_names
     match_percentage = (len(overlap) / len(required)) * 100 if required else 0
 
     return {
         "job_title": job.title,
-        "description": job.description,
+        "description": job.description or "",
         "match_percentage": round(match_percentage, 2),
         "have_skills": list(overlap),
         "missing_skills": list(missing),
-        "salary_range": f"${job.salary_min:,} - ${job.salary_max:,}",
-        "time_to_ready": job.time_to_ready,
+        "salary_range": f"${job.salary_min:,} - ${job.salary_max:,}" if job.salary_min else "",
+        "time_to_ready": job.time_to_ready or "",
     }
 
 
@@ -185,83 +195,101 @@ class CareerPathAPI(APIView):
 
     def get(self, request):
         user = request.user
-        if not user:
-            return Response({"error": "No demo user"}, status=404)
 
-        # Load ML model if exists
-        model_path = os.path.join("app", "ml", "model.pkl")
+        
         user_skills_qs = UserSkill.objects.filter(user=user)
-        skill_vector = {s.skill.name: s.points for s in user_skills_qs}
+        if not user_skills_qs.exists():
+            return Response({
+                "job_title": None,
+                "description": "",
+                "salary_range": "",
+                "time_to_ready": "",
+                "missing_skills": [],
+                "recommended_courses": []
+            }, status=200)
 
+        
+        model_path = os.path.join("app", "ml", "model.pkl")
+        skill_vector = {s.skill.name: s.points for s in user_skills_qs}
         predicted_job_title = None
+
         if os.path.exists(model_path) and skill_vector:
             try:
                 clf = joblib.load(model_path)
                 X = pd.DataFrame([skill_vector])
                 predicted_job_title = clf.predict(X)[0]
-            except:
+            except Exception:
                 predicted_job_title = None
 
-        # fallback based on strongest skill
+        
         if not predicted_job_title and skill_vector:
             strongest_skill = max(skill_vector.items(), key=lambda x: x[1])[0].lower()
             role_mapping = {
-                        "communication": "Team Player",
-                        "teamwork": "Team Player",
-                        "adaptability": "Problem Solver",
-                        "task management": "Efficient Planner",
-                        "time management": "Organized Worker",
-                        "leadership": "Leader / Manager",
-                        "project management": "Project Manager",
-                        "learning ability": "Curious Learner",
-                        "react": "Frontend Developer",
-                        "vue": "Frontend Developer",
-                        "angular": "Frontend Developer",
-                        "javascript": "Frontend Developer",
-                        "typescript": "Frontend Developer",
-                        "ios": "iOS Developer",
-                        "android": "Android Developer",
-                        "react native": "React Native Developer",
-                        "ui/ux": "UI/UX Designer",
-                        "graphic designer": "Graphic Designer",
-                        "3d modeler": "3D Modeler",
-                        "product designer": "Product Designer",
-                        "python": "Backend Developer",
-                        "django": "Backend Developer",
-                        "flask": "Backend Developer",
-                        "node.js": "Backend Developer",
-                        "express.js": "Backend Developer",
-                        "sql": "Data Analyst",
-                        "mongodb": "Data Analyst",
-                        "data analyst": "Data Analyst",
-                        "content creator": "Content Creator",
-                        "video editor": "Content Creator",
-                        "copywriter": "Content Creator",
-                        "devops": "DevOps Engineer",
-                        "aws": "DevOps Engineer",
-                        "docker": "DevOps Engineer",
-                        "kubernetes": "DevOps Engineer"
-                    }
-            predicted_job_title = role_mapping.get(strongest_skill, "N/A")
+                "communication": "Team Player",
+                "teamwork": "Team Player",
+                "adaptability": "Problem Solver",
+                "task management": "Efficient Planner",
+                "time management": "Organized Worker",
+                "leadership": "Leader / Manager",
+                "project management": "Project Manager",
+                "learning ability": "Curious Learner",
+                "react": "Frontend Developer",
+                "vue": "Frontend Developer",
+                "angular": "Frontend Developer",
+                "javascript": "Frontend Developer",
+                "typescript": "Frontend Developer",
+                "ios": "iOS Developer",
+                "android": "Android Developer",
+                "react native": "React Native Developer",
+                "ui/ux": "UI/UX Designer",
+                "python": "Backend Developer",
+                "django": "Backend Developer",
+                "sql": "Data Analyst",
+                "mongodb": "Data Analyst",
+            }
+            predicted_job_title = role_mapping.get(strongest_skill, None)
 
-        try:
-            job_obj = Job.objects.get(title=predicted_job_title)
-        except Job.DoesNotExist:
-            return Response({"error": f"Job '{predicted_job_title}' not found"}, status=404)
+        
+        if not predicted_job_title:
+            return Response({
+                "job_title": None,
+                "description": "",
+                "salary_range": "",
+                "time_to_ready": "",
+                "missing_skills": [],
+                "recommended_courses": []
+            }, status=200)
 
+        
+        job_obj = Job.objects.filter(title__iexact=predicted_job_title).first()
+        if not job_obj:
+            return Response({
+                "job_title": predicted_job_title,
+                "description": "",
+                "salary_range": "",
+                "time_to_ready": "",
+                "missing_skills": [],
+                "recommended_courses": []
+            }, status=200)
+
+        
         user_skills = set(user_skills_qs.values_list("skill__name", flat=True))
         required_skills = set(job_obj.required_skills.values_list("name", flat=True))
-        missing_skills = required_skills - user_skills
-        rec_courses = Course.objects.filter(skills_taught__name__in=missing_skills).values_list("title", flat=True)
+        missing_skills = list(required_skills - user_skills)
+
+       
+        rec_courses = Course.objects.filter(
+            skills_taught__name__in=missing_skills
+        ).values_list("title", flat=True)
 
         return Response({
             "job_title": job_obj.title,
-            "description": job_obj.description,
-            "salary_range": f"${job_obj.salary_min:,} - ${job_obj.salary_max:,}",
-            "time_to_ready": job_obj.time_to_ready,
-            "missing_skills": list(missing_skills),
+            "description": job_obj.description or "",
+            "salary_range": f"${job_obj.salary_min:,} - ${job_obj.salary_max:,}" if job_obj.salary_min else "",
+            "time_to_ready": job_obj.time_to_ready or "",
+            "missing_skills": missing_skills,
             "recommended_courses": list(rec_courses)
-        })
+        }, status=200)
 
 # ---------------- Questions API ----------------
 
@@ -1676,6 +1704,9 @@ class UserProfileDetailView(APIView):
             return Response({"error": "User profile not found"}, status=status.HTTP_404_NOT_FOUND)
 
         
+        saved_courses = SavedCourse.objects.filter(user=profile.user).values_list("course__title", flat=True)
+        saved_jobs = SavedJob.objects.filter(user=profile.user).values_list("job__title", flat=True)
+
         serializer = UserProfileSerializer(profile, context={"request": request})
 
         
@@ -1683,7 +1714,7 @@ class UserProfileDetailView(APIView):
         final_role = last_result.final_role if last_result else None
         skills_json = last_result.skills_json if last_result else {}
 
-        
+       
         user_skills = UserSkill.objects.filter(user=profile.user)
         courses_set = set()
         for job in Job.objects.all():
@@ -1694,7 +1725,6 @@ class UserProfileDetailView(APIView):
 
         recommended_courses = list(courses_set)
 
-        
         recommended_jobs = []
         if final_role:
             jobs_qs = Job.objects.filter(title__icontains=final_role)
@@ -1712,9 +1742,10 @@ class UserProfileDetailView(APIView):
             "profile_data": serializer.data,
             "final_role": final_role,
             "recommended_courses": recommended_courses,
-            "recommended_jobs": recommended_jobs
+            "recommended_jobs": recommended_jobs,
+            "saved_courses": list(saved_courses),
+            "saved_jobs": list(saved_jobs),
         }, status=status.HTTP_200_OK)
-
 
 
 
@@ -1730,10 +1761,10 @@ class AcademyDetailView(APIView):
 
         serializer = AcademyDetailSerializer(academy, context={"request": request})
 
-       
+        
         students = UserProfile.objects.filter(user__skilltestresult__isnull=False).distinct()
 
-        
+       
         academy_courses = Course.objects.filter(academy=academy)
 
        
@@ -1741,15 +1772,78 @@ class AcademyDetailView(APIView):
         recommended_jobs = []
         for job in Job.objects.all():
             match_data = calculate_match(all_user_skills, job)
-            if match_data["match_percentage"] >= 40: 
+            if match_data["match_percentage"] >= 40:
                 recommended_jobs.append(match_data)
 
-        
         recommended_courses = list(academy_courses.values_list("title", flat=True))
 
+       
+        saved_courses = SavedCourse.objects.filter(academy=academy).values_list("course__title", flat=True)
+        saved_jobs = SavedJob.objects.filter(academy=academy).values_list("job__title", flat=True)
+
+        
         return Response({
             "profile_type": "academy",
             "profile_data": serializer.data,
             "recommended_courses": recommended_courses,
-            "recommended_jobs": recommended_jobs
+            "recommended_jobs": recommended_jobs,
+            "saved_courses": list(saved_courses),
+            "saved_jobs": list(saved_jobs),
         }, status=status.HTTP_200_OK)
+
+
+
+
+
+
+#-----------------Save Course/Job to User/Academy Profile ------------------
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def toggle_save_course(request, course_id):
+    user = request.user
+    saved, created = SavedCourse.objects.get_or_create(user=user, course_id=course_id)
+    if not created:
+        saved.delete()
+        return Response({"message": "deleted from saved jobs."})
+    return Response({"message": "valid successfully saved job."})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def toggle_save_job(request, job_id):
+    user = request.user
+    saved, created = SavedJob.objects.get_or_create(user=user, job_id=job_id)
+    if not created:
+        saved.delete()
+        return Response({"message": "deleted from saved jobs."})
+    return Response({"message": "valid successfully saved job."})
+
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def toggle_save_course_academy(request, course_id):
+    academy = Academy.objects.filter(user=request.user).first()
+    if not academy:
+        return Response({"error": "Academy not found for this user."}, status=404)
+
+    saved, created = SavedCourse.objects.get_or_create(academy=academy, course_id=course_id)
+    if not created:
+        saved.delete()
+        return Response({"message": "Course removed from academy saved list."})
+    return Response({"message": "Course saved to academy profile."})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def toggle_save_job_academy(request, job_id):
+    academy = Academy.objects.filter(user=request.user).first()
+    if not academy:
+        return Response({"error": "Academy not found for this user."}, status=404)
+
+    saved, created = SavedJob.objects.get_or_create(academy=academy, job_id=job_id)
+    if not created:
+        saved.delete()
+        return Response({"message": "Job removed from academy saved list."})
+    return Response({"message": "Job saved to academy profile."})

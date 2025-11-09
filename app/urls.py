@@ -8,7 +8,7 @@ from .views import (
     RandomCareerQuestionsAPI, DynamicSoftSkillsquestionsAPI,
     StartSoftAssessmentAPI, SubmitSoftAnswerAPI, FinishSoftAssessmentAPI,
     CareerRoadmapAPI, save_test_results, get_user_results,
-    RegisterView,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView,AcademyProfileUpdateView,ChangePasswordView,AcademyChangePasswordView,UserProfileView,AcademyLoginView,AcademyDetailView,UserProfileDetailView
+    RegisterView,CustomTokenObtainPairView,TemporaryAcademyRegisterView,TemporaryAcademyVerifyView,VerifyCodeView,PasswordResetRequestView, PasswordResetVerifyView, SetNewPasswordView,AcademyProfileUpdateView,ChangePasswordView,AcademyChangePasswordView,UserProfileView,AcademyLoginView,AcademyDetailView,UserProfileDetailView,toggle_save_course,toggle_save_job,toggle_save_course_academy,toggle_save_job_academy
     
 )
 from django.conf import settings
@@ -64,6 +64,12 @@ urlpatterns = [
     path('api/user/<int:user_id>/', UserProfileDetailView.as_view(), name='user-public-profile'),
     path("api/academy/<int:academy_id>/", AcademyDetailView.as_view(), name="academy-detail"),
 
+    # ----------- saved courses and jobs -----------
+    
+    path("api/save-course/<int:course_id>/", toggle_save_course, name="save-course"),
+    path("api/save-job/<int:job_id>/", toggle_save_job, name="save-job"),
+    path("api/academy/save-course/<int:course_id>/", toggle_save_course_academy, name="save-course-academy"),
+    path("api/academy/save-job/<int:job_id>/", toggle_save_job_academy, name="save-job-academy"),
 ] 
 
 

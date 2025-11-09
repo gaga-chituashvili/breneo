@@ -7,7 +7,7 @@ from .models import (
     CareerQuestion,
     CareerOption,
     DynamicSoftSkillsQuestion,
-    SkillTestResult,TemporaryAcademy,SocialLinks,Academy,UserProfile,TemporaryUser,Course
+    SkillTestResult,TemporaryAcademy,SocialLinks,Academy,UserProfile,TemporaryUser,Course,SavedCourse, SavedJob
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed
@@ -17,8 +17,6 @@ from django.contrib.auth.models import User
 from .models import Academy,UserProfile,TemporaryUser
 from django.contrib.auth.hashers import make_password, check_password
 User = get_user_model()
-
-
 
 
 
@@ -514,8 +512,19 @@ class SocialLinksSerializer(serializers.ModelSerializer):
 
 
 
+#---------------- Saved Courses and Jobs ----------------
+
+class SavedCourseSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source="course.title", read_only=True)
+
+    class Meta:
+        model = SavedCourse
+        fields = ["id", "course", "course_title", "saved_at"]
 
 
+class SavedJobSerializer(serializers.ModelSerializer):
+    job_title = serializers.CharField(source="job.title", read_only=True)
 
-
-
+    class Meta:
+        model = SavedJob
+        fields = ["id", "job", "job_title", "saved_at"]

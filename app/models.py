@@ -308,3 +308,35 @@ class SocialLinks(models.Model):
         elif self.academy:
             return f"{self.academy.name}'s Social Links"
         return "Unknown Social Links"
+    
+
+
+
+class SavedCourse(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="saved_courses")
+    academy = models.ForeignKey('Academy', on_delete=models.CASCADE, null=True, blank=True, related_name="saved_courses")
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="saved_by")
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (('user', 'course'), ('academy', 'course'))
+
+    def __str__(self):
+        if self.user:
+            return f"{self.user.username} saved {self.course.title}"
+        return f"{self.academy.name} saved {self.course.title}"
+
+
+class SavedJob(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="saved_jobs")
+    academy = models.ForeignKey('Academy', on_delete=models.CASCADE, null=True, blank=True, related_name="saved_jobs")
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="saved_by")
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (('user', 'job'), ('academy', 'job'))
+
+    def __str__(self):
+        if self.user:
+            return f"{self.user.username} saved {self.job.title}"
+        return f"{self.academy.name} saved {self.job.title}"
