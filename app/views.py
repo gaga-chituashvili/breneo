@@ -1703,18 +1703,18 @@ class UserProfileDetailView(APIView):
         except UserProfile.DoesNotExist:
             return Response({"error": "User profile not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        
         saved_courses = SavedCourse.objects.filter(user=profile.user).values_list("course__title", flat=True)
         saved_jobs = SavedJob.objects.filter(user=profile.user).values_list("job__title", flat=True)
 
         serializer = UserProfileSerializer(profile, context={"request": request})
 
-        
+        social_links, _ = SocialLinks.objects.get_or_create(user=profile.user)
+        social_serializer = SocialLinksSerializer(social_links)
+
         last_result = SkillTestResult.objects.filter(user=profile.user).order_by('-created_at').first()
         final_role = last_result.final_role if last_result else None
         skills_json = last_result.skills_json if last_result else {}
 
-       
         user_skills = UserSkill.objects.filter(user=profile.user)
         courses_set = set()
         for job in Job.objects.all():
@@ -1724,7 +1724,6 @@ class UserProfileDetailView(APIView):
             courses_set.update(courses)
 
         recommended_courses = list(courses_set)
-
         recommended_jobs = []
         if final_role:
             jobs_qs = Job.objects.filter(title__icontains=final_role)
@@ -1745,8 +1744,8 @@ class UserProfileDetailView(APIView):
             "recommended_jobs": recommended_jobs,
             "saved_courses": list(saved_courses),
             "saved_jobs": list(saved_jobs),
+            "social_links": social_serializer.data,
         }, status=status.HTTP_200_OK)
-
 
 
 
@@ -1761,13 +1760,13 @@ class AcademyDetailView(APIView):
 
         serializer = AcademyDetailSerializer(academy, context={"request": request})
 
-        
-        students = UserProfile.objects.filter(user__skilltestresult__isnull=False).distinct()
+        # ✅ social_links დამატება აქ
+        social_links, _ = SocialLinks.objects.get_or_create(academy=academy)
+        social_serializer = SocialLinksSerializer(social_links)
 
-       
+        students = UserProfile.objects.filter(user__skilltestresult__isnull=False).distinct()
         academy_courses = Course.objects.filter(academy=academy)
 
-       
         all_user_skills = UserSkill.objects.filter(user__in=[s.user for s in students])
         recommended_jobs = []
         for job in Job.objects.all():
@@ -1777,11 +1776,9 @@ class AcademyDetailView(APIView):
 
         recommended_courses = list(academy_courses.values_list("title", flat=True))
 
-       
         saved_courses = SavedCourse.objects.filter(academy=academy).values_list("course__title", flat=True)
         saved_jobs = SavedJob.objects.filter(academy=academy).values_list("job__title", flat=True)
 
-        
         return Response({
             "profile_type": "academy",
             "profile_data": serializer.data,
@@ -1789,6 +1786,7 @@ class AcademyDetailView(APIView):
             "recommended_jobs": recommended_jobs,
             "saved_courses": list(saved_courses),
             "saved_jobs": list(saved_jobs),
+            "social_links": social_serializer.data,
         }, status=status.HTTP_200_OK)
 
 
