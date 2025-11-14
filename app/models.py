@@ -340,3 +340,18 @@ class SavedJob(models.Model):
         if self.user:
             return f"{self.user.username} saved {self.job.title}"
         return f"{self.academy.name} saved {self.job.title}"
+
+
+
+
+# Subscription Model
+
+class UserSubscription(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    parent_order_id = models.CharField(max_length=200, null=True, blank=True)
+    is_active = models.BooleanField(default=False)
+    next_payment_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} subscription"

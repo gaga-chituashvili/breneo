@@ -1845,3 +1845,184 @@ def toggle_save_job_academy(request, job_id):
         saved.delete()
         return Response({"message": "Job removed from academy saved list."})
     return Response({"message": "Job saved to academy profile."})
+
+
+
+
+
+# ------------------ Bog Token Fetch ------------------
+
+import base64, requests, json
+from django.conf import settings
+
+def get_bog_token():
+    auth_string = f"{settings.BOG_CLIENT_ID}:{settings.BOG_CLIENT_SECRET}"
+    b64 = base64.b64encode(auth_string.encode()).decode()
+
+    headers = {
+        "Authorization": f"Basic {b64}",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    data = {"grant_type": "client_credentials"}
+
+    res = requests.post(settings.BOG_TOKEN_URL, headers=headers, data=data)
+
+    if res.status_code != 200:
+        print("BOG TOKEN ERROR:", res.text)
+        return None
+
+    return res.json().get("access_token")
+
+
+
+
+# ------------------ Create Bog Order ------------------
+
+class CreateOrderView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        token = get_bog_token()
+        if not token:
+            return Response({"error": "Token error"}, status=400)
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Accept-Language": "ka",
+        }
+
+        payload = {
+            "callback_url": "https://breneo.onrender.com/api/bog/callback/",
+            "external_order_id": f"user-{request.user.id}",
+            "purchase_units": {
+                "currency": "GEL",
+                "total_amount": 10,
+                "basket": [
+                    {
+                        "quantity": 1,
+                        "unit_price": 10,
+                        "product_id": "monthly_subscription"
+                    }
+                ]
+            },
+            "redirect_urls": {
+                "success": "https://yourfrontend.com/success",
+                "fail": "https://yourfrontend.com/fail",
+            }
+        }
+
+        res = requests.post(settings.BOG_ORDER_URL, headers=headers, json=payload)
+        data = res.json()
+
+        return Response({
+            "redirect_url": data["_links"]["redirect"]["href"],
+            "order_id": data["id"]
+        })
+
+
+
+# ------------------Save Card for Future Payments ------------------
+from datetime import timedelta
+from .models import UserSubscription
+
+class SaveCardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, order_id):
+        token = get_bog_token()
+        if not token:
+            return Response({"error": "Token error"}, status=400)
+
+        url = f"{settings.BOG_ORDER_URL}/{order_id}/cards"
+
+        headers = {"Authorization": f"Bearer {token}"}
+
+        res = requests.put(url, headers=headers)
+        data = res.json()
+
+        parent_order_id = data.get("parent_order_id")  # IMPORTANT
+
+        # Save subscription info
+        UserSubscription.objects.update_or_create(
+            user=request.user,
+            defaults={
+                "parent_order_id": parent_order_id,
+                "is_active": True,
+                "next_payment_date": timezone.now().date() + timedelta(days=30)
+            }
+        )
+
+        return Response({"message": "Card saved", "parent_order_id": parent_order_id})
+
+
+
+# ------------------Automatic charge using saved card ------------------
+
+class AutomaticChargeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        sub = UserSubscription.objects.filter(user=request.user, is_active=True).first()
+        if not sub:
+            return Response({"error": "No active subscription"}, status=404)
+
+        token = get_bog_token()
+        if not token:
+            return Response({"error": "Token error"}, status=400)
+
+        url = f"{settings.BOG_ORDER_URL}/{sub.parent_order_id}"
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "callback_url": "https://yourdomain.com/api/bog/callback/",
+            "purchase_units": {
+                "total_amount": 10,
+                "basket": [
+                    {
+                        "quantity": 1,
+                        "unit_price": 10,
+                        "product_id": "monthly_subscription"
+                    }
+                ]
+            }
+        }
+
+        res = requests.post(url, headers=headers, json=payload)
+        data = res.json()
+
+        return Response({"next_payment_order_id": data["id"]})
+
+
+# ------------------ BOG Callback Handler ------------------
+
+class BOGCallbackView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        body = request.data
+        order_status = body["order_status"]["key"]
+        parent_order_id = body["payment_detail"].get("parent_order_id")
+
+        if not parent_order_id:
+            return Response({"status": "ignored"})
+
+        # SUCCESSFUL RECURRING
+        if order_status == "completed":
+            sub = UserSubscription.objects.filter(parent_order_id=parent_order_id).first()
+            if sub:
+                sub.next_payment_date = timezone.now().date() + timedelta(days=30)
+                sub.save()
+
+        # FAILED
+        if order_status in ["failed", "rejected"]:
+            pass  # notify if needed
+
+        return Response({"status": "ok"})
+
