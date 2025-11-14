@@ -1942,7 +1942,7 @@ class SaveCardView(APIView):
         res = requests.put(url, headers=headers)
         data = res.json()
 
-        parent_order_id = data.get("parent_order_id")  # IMPORTANT
+        parent_order_id = data.get("parent_order_id")
 
         # Save subscription info
         UserSubscription.objects.update_or_create(
@@ -1980,7 +1980,7 @@ class AutomaticChargeView(APIView):
         }
 
         payload = {
-            "callback_url": "https://yourdomain.com/api/bog/callback/",
+            "callback_url": "https://breneo.onrender.com/api/bog/callback/",
             "purchase_units": {
                 "total_amount": 10,
                 "basket": [
