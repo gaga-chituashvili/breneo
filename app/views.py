@@ -1281,13 +1281,19 @@ class UserProfileView(APIView):
         user = request.user
         profile, _ = UserProfile.objects.get_or_create(user=user)
 
+        # --- PROFILE IMAGE ---
         profile_image_url = (
             request.build_absolute_uri(profile.profile_image.url)
             if profile.profile_image else None
         )
 
+        # --- SOCIAL LINKS ---
         social_links, _ = SocialLinks.objects.get_or_create(user=user)
         social_data = SocialLinksSerializer(social_links).data
+
+        # --- SAVED COURSES / JOBS ---
+        saved_courses = SavedCourse.objects.filter(user=user).values_list("course_id", flat=True)
+        saved_jobs = SavedJob.objects.filter(user=user).values_list("job_id", flat=True)
 
         return Response({
             "id": user.id,
@@ -1297,32 +1303,36 @@ class UserProfileView(APIView):
             "phone_number": profile.phone_number,
             "about_me": profile.about_me,
             "profile_image": profile_image_url,
-            "social_links": social_data
+            "social_links": social_data,
+
+            # 🔥 added
+            "saved_courses": list(saved_courses),
+            "saved_jobs": list(saved_jobs),
         })
 
     def patch(self, request):
-        profile, _ = UserProfile.objects.get_or_create(user=request.user)
-
-        # --- UPDATE USER NAME ---
         user = request.user
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+
+       
         if "first_name" in request.data:
             user.first_name = request.data["first_name"]
         if "last_name" in request.data:
             user.last_name = request.data["last_name"]
         user.save()
 
-        # --- UPDATE PROFILE FIELDS ---
+        
         serializer = UserProfileSerializer(
-            profile, 
-            data=request.data, 
-            partial=True, 
+            profile,
+            data=request.data,
+            partial=True,
             context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        # --- UPDATE SOCIAL LINKS (ADDED) ---
-        social_links, _ = SocialLinks.objects.get_or_create(user=request.user)
+        
+        social_links, _ = SocialLinks.objects.get_or_create(user=user)
         social_data = request.data.get("social_links")
 
         if isinstance(social_data, dict):
@@ -1334,21 +1344,29 @@ class UserProfileView(APIView):
             social_serializer.is_valid(raise_exception=True)
             social_serializer.save()
 
-        # --- IMAGE URL ---
+        
         profile_image_url = (
             request.build_absolute_uri(profile.profile_image.url)
             if profile.profile_image else None
         )
 
+        
+        saved_courses = SavedCourse.objects.filter(user=user).values_list("course_id", flat=True)
+        saved_jobs = SavedJob.objects.filter(user=user).values_list("job_id", flat=True)
+
         return Response({
             "message": "Profile updated successfully.",
-            "first_name": request.user.first_name,
-            "last_name": request.user.last_name,
-            "email": request.user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
             "phone_number": profile.phone_number,
             "about_me": profile.about_me,
             "profile_image": profile_image_url,
-            "social_links": SocialLinksSerializer(social_links).data
+            "social_links": SocialLinksSerializer(social_links).data,
+
+            
+            "saved_courses": list(saved_courses),
+            "saved_jobs": list(saved_jobs),
         }, status=status.HTTP_200_OK)
 
     def delete(self, request):
@@ -1377,13 +1395,19 @@ class AcademyProfileUpdateView(APIView):
         if not academy:
             return Response({"error": "Academy not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        
         social_links, _ = SocialLinks.objects.get_or_create(academy=academy)
         social_data = SocialLinksSerializer(social_links).data
 
+        
         profile_image_url = (
             request.build_absolute_uri(academy.profile_image.url)
             if academy.profile_image else None
         )
+
+        
+        saved_courses = SavedCourse.objects.filter(academy=academy).values_list("course_id", flat=True)
+        saved_jobs = SavedJob.objects.filter(academy=academy).values_list("job_id", flat=True)
 
         return Response({
             "id": academy.id,
@@ -1395,7 +1419,9 @@ class AcademyProfileUpdateView(APIView):
             "is_verified": academy.is_verified,
             "created_at": academy.created_at,
             "profile_image": profile_image_url,
-            "social_links": social_data
+            "social_links": social_data,
+            "saved_courses": list(saved_courses),
+            "saved_jobs": list(saved_jobs),
         })
 
     def patch(self, request):
@@ -1403,7 +1429,7 @@ class AcademyProfileUpdateView(APIView):
         if not academy:
             return Response({"error": "Academy not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        
+       
         serializer = AcademyUpdateSerializer(
             academy,
             data=request.data,
@@ -1431,11 +1457,15 @@ class AcademyProfileUpdateView(APIView):
             social_serializer.is_valid(raise_exception=True)
             social_serializer.save()
 
-       
+        
         profile_image_url = (
             request.build_absolute_uri(academy.profile_image.url)
             if academy.profile_image else None
         )
+
+       
+        saved_courses = SavedCourse.objects.filter(academy=academy).values_list("course_id", flat=True)
+        saved_jobs = SavedJob.objects.filter(academy=academy).values_list("job_id", flat=True)
 
         return Response({
             "message": "Academy profile updated successfully.",
@@ -1449,8 +1479,11 @@ class AcademyProfileUpdateView(APIView):
                 "is_verified": academy.is_verified,
                 "profile_image": profile_image_url,
             },
-            "social_links": SocialLinksSerializer(social_links).data
+            "social_links": SocialLinksSerializer(social_links).data,
+            "saved_courses": list(saved_courses),
+            "saved_jobs": list(saved_jobs),
         }, status=status.HTTP_200_OK)
+
 
 
 
@@ -1751,6 +1784,19 @@ class UserProfileDetailView(APIView):
         skills_json = last_result.skills_json if last_result else {}
 
         user_skills = UserSkill.objects.filter(user=profile.user)
+
+       
+        user_missing_skills = []
+        for job in Job.objects.all():
+            match_data = calculate_match(user_skills, job)
+            missing = match_data.get("missing_skills", [])
+            user_missing_skills.extend(missing)
+
+        
+        user_missing_skills = list(set(user_missing_skills))
+        
+
+        
         courses_set = set()
         for job in Job.objects.all():
             match_data = calculate_match(user_skills, job)
@@ -1759,6 +1805,7 @@ class UserProfileDetailView(APIView):
             courses_set.update(courses)
 
         recommended_courses = list(courses_set)
+
         recommended_jobs = []
         if final_role:
             jobs_qs = Job.objects.filter(title__icontains=final_role)
@@ -1780,7 +1827,9 @@ class UserProfileDetailView(APIView):
             "saved_courses": list(saved_courses),
             "saved_jobs": list(saved_jobs),
             "social_links": social_serializer.data,
+            "missing_skills": user_missing_skills,
         }, status=status.HTTP_200_OK)
+
 
 
 
@@ -1795,7 +1844,7 @@ class AcademyDetailView(APIView):
 
         serializer = AcademyDetailSerializer(academy, context={"request": request})
 
-        # ✅ social_links დამატება აქ
+        
         social_links, _ = SocialLinks.objects.get_or_create(academy=academy)
         social_serializer = SocialLinksSerializer(social_links)
 
@@ -1803,11 +1852,23 @@ class AcademyDetailView(APIView):
         academy_courses = Course.objects.filter(academy=academy)
 
         all_user_skills = UserSkill.objects.filter(user__in=[s.user for s in students])
+
+        
         recommended_jobs = []
         for job in Job.objects.all():
             match_data = calculate_match(all_user_skills, job)
             if match_data["match_percentage"] >= 40:
                 recommended_jobs.append(match_data)
+
+
+        academy_missing_skills = []
+        for job in Job.objects.all():
+            match_data = calculate_match(all_user_skills, job)
+            missing = match_data.get("missing_skills", [])
+            academy_missing_skills.extend(missing)
+
+        academy_missing_skills = list(set(academy_missing_skills))
+        # ---------------------------------------------
 
         recommended_courses = list(academy_courses.values_list("title", flat=True))
 
@@ -1822,7 +1883,9 @@ class AcademyDetailView(APIView):
             "saved_courses": list(saved_courses),
             "saved_jobs": list(saved_jobs),
             "social_links": social_serializer.data,
+            "missing_skills": academy_missing_skills
         }, status=status.HTTP_200_OK)
+
 
 
 
