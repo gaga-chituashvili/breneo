@@ -1280,10 +1280,11 @@ class UserProfileView(APIView):
     def get(self, request):
         user = request.user
         profile, _ = UserProfile.objects.get_or_create(user=user)
-        profile_image_url = None
 
-        if profile.profile_image:
-            profile_image_url = request.build_absolute_uri(profile.profile_image.url)
+        profile_image_url = (
+            request.build_absolute_uri(profile.profile_image.url)
+            if profile.profile_image else None
+        )
 
         social_links, _ = SocialLinks.objects.get_or_create(user=user)
         social_data = SocialLinksSerializer(social_links).data
@@ -1301,22 +1302,43 @@ class UserProfileView(APIView):
 
     def patch(self, request):
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+        # --- UPDATE USER NAME ---
+        user = request.user
+        if "first_name" in request.data:
+            user.first_name = request.data["first_name"]
+        if "last_name" in request.data:
+            user.last_name = request.data["last_name"]
+        user.save()
+
+        # --- UPDATE PROFILE FIELDS ---
         serializer = UserProfileSerializer(
-            profile, data=request.data, partial=True, context={"request": request}
+            profile, 
+            data=request.data, 
+            partial=True, 
+            context={"request": request}
         )
-
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        # --- UPDATE SOCIAL LINKS (ADDED) ---
+        social_links, _ = SocialLinks.objects.get_or_create(user=request.user)
+        social_data = request.data.get("social_links")
+
+        if isinstance(social_data, dict):
+            social_serializer = SocialLinksSerializer(
+                social_links,
+                data=social_data,
+                partial=True
+            )
+            social_serializer.is_valid(raise_exception=True)
+            social_serializer.save()
+
+        # --- IMAGE URL ---
         profile_image_url = (
             request.build_absolute_uri(profile.profile_image.url)
             if profile.profile_image else None
         )
-
-        social_links, _ = SocialLinks.objects.get_or_create(user=request.user)
-        social_data = SocialLinksSerializer(social_links).data
 
         return Response({
             "message": "Profile updated successfully.",
@@ -1326,7 +1348,7 @@ class UserProfileView(APIView):
             "phone_number": profile.phone_number,
             "about_me": profile.about_me,
             "profile_image": profile_image_url,
-            "social_links": social_data
+            "social_links": SocialLinksSerializer(social_links).data
         }, status=status.HTTP_200_OK)
 
     def delete(self, request):
@@ -1348,9 +1370,7 @@ class AcademyProfileUpdateView(APIView):
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_academy(self, request):
-        if hasattr(request.user, "email"):
-            return Academy.objects.filter(email__iexact=request.user.email).first()
-        return None
+        return Academy.objects.filter(user=request.user).first()
 
     def get(self, request):
         academy = self.get_academy(request)
@@ -1383,29 +1403,44 @@ class AcademyProfileUpdateView(APIView):
         if not academy:
             return Response({"error": "Academy not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        
         serializer = AcademyUpdateSerializer(
-            academy, data=request.data, partial=True, context={"request": request}
+            academy,
+            data=request.data,
+            partial=True,
+            context={"request": request}
         )
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        
+        if "name" in request.data:
+            academy.user.first_name = request.data["name"]
+            academy.user.save()
+
+        
+        social_links, _ = SocialLinks.objects.get_or_create(academy=academy)
+        social_data = request.data.get("social_links", None)
+
+        if isinstance(social_data, dict): 
+            social_serializer = SocialLinksSerializer(
+                social_links,
+                data=social_data,
+                partial=True
+            )
+            social_serializer.is_valid(raise_exception=True)
+            social_serializer.save()
+
+       
         profile_image_url = (
             request.build_absolute_uri(academy.profile_image.url)
             if academy.profile_image else None
         )
 
-        social_links, _ = SocialLinks.objects.get_or_create(academy=academy)
-        social_serializer = SocialLinksSerializer(
-            social_links, data=request.data.get("social_links", {}), partial=True
-        )
-        if social_serializer.is_valid():
-            social_serializer.save()
-
         return Response({
             "message": "Academy profile updated successfully.",
             "academy": {
+                "id": academy.id,
                 "name": academy.name,
                 "email": academy.email,
                 "phone_number": academy.phone_number,
@@ -1908,8 +1943,8 @@ class CreateOrderView(APIView):
                 ]
             },
             "redirect_urls": {
-                "success": "https://yourfrontend.com/success",
-                "fail": "https://yourfrontend.com/fail",
+                "success": "https://dashboard.breneo.app/success",
+                "fail": "https://dashboard.breneo.app/fail",
             }
         }
 
@@ -2007,22 +2042,25 @@ class BOGCallbackView(APIView):
 
     def post(self, request):
         body = request.data
+
         order_status = body["order_status"]["key"]
         parent_order_id = body["payment_detail"].get("parent_order_id")
 
         if not parent_order_id:
             return Response({"status": "ignored"})
 
-        # SUCCESSFUL RECURRING
         if order_status == "completed":
             sub = UserSubscription.objects.filter(parent_order_id=parent_order_id).first()
             if sub:
                 sub.next_payment_date = timezone.now().date() + timedelta(days=30)
                 sub.save()
 
-        # FAILED
         if order_status in ["failed", "rejected"]:
-            pass  # notify if needed
+            sub = UserSubscription.objects.filter(parent_order_id=parent_order_id).first()
+            if sub:
+                sub.is_active = False
+                sub.save()
 
         return Response({"status": "ok"})
+
 
