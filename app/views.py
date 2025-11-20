@@ -1189,14 +1189,14 @@ class VerifyCodeView(APIView):
         if not email or not code:
             return Response({"error": "Email and code are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # მომხმარებლის ვერიოფიკაცია
+        
         temp_user = TemporaryUser.objects.filter(email=email).first()
         temp_academy = TemporaryAcademy.objects.filter(email=email).first()
 
         if not temp_user and not temp_academy:
             return Response({"error": "No temporary record found for this email"}, status=status.HTTP_404_NOT_FOUND)
 
-        # თუ არის TemporaryUser
+        
         if temp_user:
             if temp_user.verification_code != code:
                 return Response({"error": "Invalid verification code"}, status=status.HTTP_400_BAD_REQUEST)
@@ -1204,12 +1204,12 @@ class VerifyCodeView(APIView):
                 temp_user.delete()
                 return Response({"error": "Verification code expired"}, status=status.HTTP_400_BAD_REQUEST)
             
-            # უკვე არსებობს User
+            
             if User.objects.filter(email=temp_user.email).exists():
                 temp_user.delete()
                 return Response({"error": "A user with this email already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # User-ის შექმნა
+            
             user = User.objects.create(
                 username=temp_user.email,
                 first_name=temp_user.first_name,
@@ -1219,7 +1219,7 @@ class VerifyCodeView(APIView):
                 is_active=True
             )
 
-            # UserProfile შექმნა
+            
             UserProfile.objects.create(
                 user=user,
                 phone_number=temp_user.phone_number
@@ -1227,7 +1227,7 @@ class VerifyCodeView(APIView):
             temp_user.delete()
             return Response({"message": "User registered successfully!"}, status=status.HTTP_201_CREATED)
 
-        # თუ არის TemporaryAcademy
+        
         if temp_academy:
             if temp_academy.verification_code != code:
                 return Response({"error": "Invalid verification code"}, status=status.HTTP_400_BAD_REQUEST)
@@ -1235,21 +1235,21 @@ class VerifyCodeView(APIView):
                 temp_academy.delete()
                 return Response({"error": "Verification code expired"}, status=status.HTTP_400_BAD_REQUEST)
             
-            # უკვე არსებობს Academy
+            
             if Academy.objects.filter(email=temp_academy.email).exists():
                 temp_academy.delete()
                 return Response({"error": "An academy with this email already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # --- User ობიექტის შექმნა აკადემიისთვის ---
+           
             user = User.objects.create(
                 username=temp_academy.email,
                 email=temp_academy.email,
-                password=temp_academy.password,  # უკვე hashed ფორმით ინახავ
+                password=temp_academy.password,  
                 first_name=temp_academy.name,
                 is_active=True
             )
 
-            # --- Academy-ის შექმნა (დაუკავშირე user) ---
+            
             academy = Academy.objects.create(
                 user=user,
                 name=temp_academy.name,
@@ -1281,17 +1281,17 @@ class UserProfileView(APIView):
         user = request.user
         profile, _ = UserProfile.objects.get_or_create(user=user)
 
-        # --- PROFILE IMAGE ---
+        
         profile_image_url = (
             request.build_absolute_uri(profile.profile_image.url)
             if profile.profile_image else None
         )
 
-        # --- SOCIAL LINKS ---
+        
         social_links, _ = SocialLinks.objects.get_or_create(user=user)
         social_data = SocialLinksSerializer(social_links).data
 
-        # --- SAVED COURSES / JOBS ---
+       
         saved_courses = SavedCourse.objects.filter(user=user).values_list("course_id", flat=True)
         saved_jobs = SavedJob.objects.filter(user=user).values_list("job_id", flat=True)
 
@@ -1304,8 +1304,6 @@ class UserProfileView(APIView):
             "about_me": profile.about_me,
             "profile_image": profile_image_url,
             "social_links": social_data,
-
-            # 🔥 added
             "saved_courses": list(saved_courses),
             "saved_jobs": list(saved_jobs),
         })
@@ -1842,53 +1840,32 @@ class AcademyDetailView(APIView):
         except Academy.DoesNotExist:
             return Response({"error": "Academy not found"}, status=status.HTTP_404_NOT_FOUND)
 
+       
         serializer = AcademyDetailSerializer(academy, context={"request": request})
 
         
         social_links, _ = SocialLinks.objects.get_or_create(academy=academy)
         social_serializer = SocialLinksSerializer(social_links)
 
-        students = UserProfile.objects.filter(user__skilltestresult__isnull=False).distinct()
+        
         academy_courses = Course.objects.filter(academy=academy)
-
-        all_user_skills = UserSkill.objects.filter(user__in=[s.user for s in students])
+        courses_list = list(academy_courses.values_list("title", flat=True))
 
         
-        recommended_jobs = []
-        for job in Job.objects.all():
-            match_data = calculate_match(all_user_skills, job)
-            if match_data["match_percentage"] >= 40:
-                recommended_jobs.append(match_data)
-
-
-        academy_missing_skills = []
-        for job in Job.objects.all():
-            match_data = calculate_match(all_user_skills, job)
-            missing = match_data.get("missing_skills", [])
-            academy_missing_skills.extend(missing)
-
-        academy_missing_skills = list(set(academy_missing_skills))
-        # ---------------------------------------------
-
-        recommended_courses = list(academy_courses.values_list("title", flat=True))
-
         saved_courses = SavedCourse.objects.filter(academy=academy).values_list("course__title", flat=True)
         saved_jobs = SavedJob.objects.filter(academy=academy).values_list("job__title", flat=True)
 
+        
         return Response({
             "profile_type": "academy",
             "profile_data": serializer.data,
-            "recommended_courses": recommended_courses,
-            "recommended_jobs": recommended_jobs,
+            "recommended_courses": courses_list,   
+            "recommended_jobs": [],                
             "saved_courses": list(saved_courses),
             "saved_jobs": list(saved_jobs),
             "social_links": social_serializer.data,
-            "missing_skills": academy_missing_skills
+            "missing_skills": []                  
         }, status=status.HTTP_200_OK)
-
-
-
-
 
 
 
