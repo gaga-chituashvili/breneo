@@ -1871,29 +1871,49 @@ class AcademyDetailView(APIView):
 
 #-----------------Save Course/Job to User/Academy Profile ------------------
 
+# ============================
+#   USER TOGGLE SAVE COURSE
+# ============================
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def toggle_save_course(request, course_id):
     user = request.user
-    saved, created = SavedCourse.objects.get_or_create(user=user, course_id=course_id)
+
+    saved, created = SavedCourse.objects.get_or_create(
+        user=user,
+        course_id=course_id
+    )
+
     if not created:
         saved.delete()
-        return Response({"message": "deleted from saved jobs."})
-    return Response({"message": "valid successfully saved job."})
+        return Response({"message": "Course removed from saved list."})
+
+    return Response({"message": "Course saved successfully."})
 
 
+# ============================
+#   USER TOGGLE SAVE JOB
+# ============================
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def toggle_save_job(request, job_id):
     user = request.user
-    saved, created = SavedJob.objects.get_or_create(user=user, job_id=job_id)
+
+    saved, created = SavedJob.objects.get_or_create(
+        user=user,
+        job_id=job_id
+    )
+
     if not created:
         saved.delete()
-        return Response({"message": "deleted from saved jobs."})
-    return Response({"message": "valid successfully saved job."})
+        return Response({"message": "Job removed from saved list."})
+
+    return Response({"message": "Job saved successfully."})
 
 
-
+# ============================
+#   ACADEMY TOGGLE SAVE COURSE
+# ============================
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def toggle_save_course_academy(request, course_id):
@@ -1901,13 +1921,21 @@ def toggle_save_course_academy(request, course_id):
     if not academy:
         return Response({"error": "Academy not found for this user."}, status=404)
 
-    saved, created = SavedCourse.objects.get_or_create(academy=academy, course_id=course_id)
+    saved, created = SavedCourse.objects.get_or_create(
+        academy=academy,
+        course_id=course_id
+    )
+
     if not created:
         saved.delete()
         return Response({"message": "Course removed from academy saved list."})
+
     return Response({"message": "Course saved to academy profile."})
 
 
+# ============================
+#   ACADEMY TOGGLE SAVE JOB
+# ============================
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def toggle_save_job_academy(request, job_id):
@@ -1915,10 +1943,15 @@ def toggle_save_job_academy(request, job_id):
     if not academy:
         return Response({"error": "Academy not found for this user."}, status=404)
 
-    saved, created = SavedJob.objects.get_or_create(academy=academy, job_id=job_id)
+    saved, created = SavedJob.objects.get_or_create(
+        academy=academy,
+        job_id=job_id
+    )
+
     if not created:
         saved.delete()
         return Response({"message": "Job removed from academy saved list."})
+
     return Response({"message": "Job saved to academy profile."})
 
 
