@@ -65,11 +65,12 @@ urlpatterns = [
     path("api/academy/<int:academy_id>/", AcademyDetailView.as_view(), name="academy-detail"),
 
     # ----------- saved courses and jobs -----------
-    
-    path("api/save-course/<int:course_id>/", toggle_save_course, name="save-course"),
-    path("api/save-job/<int:job_id>/", toggle_save_job, name="save-job"),
-    path("api/academy/save-course/<int:course_id>/", toggle_save_course_academy, name="save-course-academy"),
-    path("api/academy/save-job/<int:job_id>/", toggle_save_job_academy, name="save-job-academy"),
+
+    path("api/save-course/<str:course_id>/", toggle_save_course),
+    path("api/save-job/<str:job_id>/", toggle_save_job),
+    path("api/save-course-academy/<str:course_id>/", toggle_save_course_academy),
+    path("api/save-job-academy/<str:job_id>/", toggle_save_job_academy),
+
 
     # ----------- BOG Payment Integration -----------
     path("api/bog/create-order/", CreateOrderView.as_view()),
