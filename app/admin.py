@@ -7,12 +7,42 @@ from .models import (
 )
 admin.site.register(Assessment)
 admin.site.register(Badge)
-admin.site.register(Job)
 admin.site.register(Skill)
 admin.site.register(UserSkill)
-admin.site.register(Course)
 admin.site.register(TemporaryUser)
 admin.site.register(TemporaryAcademy)
+
+
+
+from django.contrib import admin
+from .models import Job, Course
+
+
+@admin.register(Job)
+class JobAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "title",
+        "salary_min",
+        "salary_max",
+        "time_to_ready",
+    )
+    readonly_fields = ("id",) 
+    search_fields = ("title",)
+    list_filter = ("time_to_ready",)
+
+
+@admin.register(Course)
+class CourseAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "title",
+        "academy",
+        "user",
+    )
+    readonly_fields = ("id",)  
+    search_fields = ("title",)
+    list_filter = ("academy",)
 
 
 
