@@ -514,7 +514,9 @@ class SocialLinksSerializer(serializers.ModelSerializer):
 
 #---------------- Saved Courses and Jobs ----------------
 
+
 class SavedCourseSerializer(serializers.ModelSerializer):
+    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all())
     course_title = serializers.CharField(source="course.title", read_only=True)
 
     class Meta:
@@ -523,6 +525,7 @@ class SavedCourseSerializer(serializers.ModelSerializer):
 
 
 class SavedJobSerializer(serializers.ModelSerializer):
+    job = serializers.PrimaryKeyRelatedField(queryset=SavedJob._meta.get_field("job").related_model.objects.all())
     job_title = serializers.CharField(source="job.title", read_only=True)
 
     class Meta:
