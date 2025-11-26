@@ -66,10 +66,11 @@ urlpatterns = [
 
     # ----------- saved courses and jobs -----------
 
-    path("api/save-course/<str:course_id>/", toggle_save_course),
-    path("api/save-job/<str:job_id>/", toggle_save_job),
-    path("api/save-course-academy/<str:course_id>/", toggle_save_course_academy),
-    path("api/save-job-academy/<str:job_id>/", toggle_save_job_academy),
+    path("api/save-course/<int:course_id>/", toggle_save_course),
+    path("api/save-job/<int:job_id>/", toggle_save_job),
+    path("api/save-course-academy/<int:course_id>/", toggle_save_course_academy),
+    path("api/save-job-academy/<int:job_id>/", toggle_save_job_academy),
+
 
 
     # ----------- BOG Payment Integration -----------

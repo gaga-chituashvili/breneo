@@ -1879,16 +1879,35 @@ class AcademyDetailView(APIView):
 def toggle_save_course(request, course_id):
     user = request.user
 
+    course_data = request.data  
+
+   
+    course, created_course = Course.objects.get_or_create(
+        id=course_id,
+        defaults={
+            "title": course_data.get("title", "Unknown Course"),
+            "description": course_data.get("description", ""),
+            "duration": course_data.get("duration", ""),
+            "price": course_data.get("price", 0),
+        }
+    )
+
     saved, created = SavedCourse.objects.get_or_create(
         user=user,
-        course_id=course_id
+        course=course
     )
 
     if not created:
         saved.delete()
-        return Response({"message": "Course removed from saved list."})
+        return Response({
+            "message": "Course removed from saved list.",
+            "saved": False
+        })
 
-    return Response({"message": "Course saved successfully."})
+    return Response({
+        "message": "Course saved successfully.",
+        "saved": True
+    })
 
 
 # ============================
@@ -1899,16 +1918,38 @@ def toggle_save_course(request, course_id):
 def toggle_save_job(request, job_id):
     user = request.user
 
+    
+    job_data = request.data  
+
+    
+    job, created_job = Job.objects.get_or_create(
+        id=job_id,   
+        defaults={
+            "title": job_data.get("title", "Unknown Job"),
+            "description": job_data.get("description", ""),
+            "salary_min": job_data.get("salary_min", 0),
+            "salary_max": job_data.get("salary_max", 0),
+            "time_to_ready": job_data.get("time_to_ready", ""),
+        }
+    )
+
+   
     saved, created = SavedJob.objects.get_or_create(
         user=user,
-        job_id=job_id
+        job=job
     )
 
     if not created:
         saved.delete()
-        return Response({"message": "Job removed from saved list."})
+        return Response({
+            "message": "Job removed from saved list.",
+            "saved": False
+        })
 
-    return Response({"message": "Job saved successfully."})
+    return Response({
+        "message": "Job saved successfully.",
+        "saved": True
+    })
 
 
 # ============================
@@ -1919,19 +1960,36 @@ def toggle_save_job(request, job_id):
 def toggle_save_course_academy(request, course_id):
     academy = Academy.objects.filter(user=request.user).first()
     if not academy:
-        return Response({"error": "Academy not found for this user."}, status=404)
+        return Response({"error": "Academy not found"}, status=404)
+
+    course_data = request.data
+
+    course, created_course = Course.objects.get_or_create(
+        id=course_id,
+        defaults={
+            "title": course_data.get("title", "Unknown Course"),
+            "description": course_data.get("description", ""),
+            "duration": course_data.get("duration", ""),
+            "price": course_data.get("price", 0),
+        }
+    )
 
     saved, created = SavedCourse.objects.get_or_create(
         academy=academy,
-        course_id=course_id
+        course=course
     )
 
     if not created:
         saved.delete()
-        return Response({"message": "Course removed from academy saved list."})
+        return Response({
+            "message": "Course removed from academy saved list.",
+            "saved": False
+        })
 
-    return Response({"message": "Course saved to academy profile."})
-
+    return Response({
+        "message": "Course saved to academy profile.",
+        "saved": True
+    })
 
 # ============================
 #   ACADEMY TOGGLE SAVE JOB
@@ -1941,18 +1999,37 @@ def toggle_save_course_academy(request, course_id):
 def toggle_save_job_academy(request, job_id):
     academy = Academy.objects.filter(user=request.user).first()
     if not academy:
-        return Response({"error": "Academy not found for this user."}, status=404)
+        return Response({"error": "Academy not found"}, status=404)
+
+    job_data = request.data
+
+    job, created_job = Job.objects.get_or_create(
+        id=job_id,
+        defaults={
+            "title": job_data.get("title", "Unknown Job"),
+            "description": job_data.get("description", ""),
+            "salary_min": job_data.get("salary_min", 0),
+            "salary_max": job_data.get("salary_max", 0),
+            "time_to_ready": job_data.get("time_to_ready", ""),
+        }
+    )
 
     saved, created = SavedJob.objects.get_or_create(
         academy=academy,
-        job_id=job_id
+        job=job
     )
 
     if not created:
         saved.delete()
-        return Response({"message": "Job removed from academy saved list."})
+        return Response({
+            "message": "Job removed from academy saved list.",
+            "saved": False
+        })
 
-    return Response({"message": "Job saved to academy profile."})
+    return Response({
+        "message": "Job saved to academy profile.",
+        "saved": True
+    })
 
 
 
