@@ -516,41 +516,35 @@ class SocialLinksSerializer(serializers.ModelSerializer):
 
 
 class SavedJobSerializer(serializers.ModelSerializer):
+    job = serializers.IntegerField(write_only=True)
     job_title = serializers.CharField(source="job.title", read_only=True)
 
     class Meta:
         model = SavedJob
         fields = ["id", "job", "job_title", "saved_at"]
 
-    def validate(self, data):
-        job_id = data.get("job")
-
-       
-        if isinstance(job_id, str):
-            try:
-                data["job"] = int(job_id)
-            except ValueError:
-                raise serializers.ValidationError({"job": "Invalid job id"})
-
-        return data
+    def create(self, validated_data):
+        job_id = validated_data.pop("job")
+        return SavedJob.objects.create(
+            user=self.context["request"].user,
+            job_id=job_id,
+            **validated_data
+        )
 
 
 
 class SavedCourseSerializer(serializers.ModelSerializer):
+    course = serializers.IntegerField(write_only=True)
     course_title = serializers.CharField(source="course.title", read_only=True)
 
     class Meta:
         model = SavedCourse
         fields = ["id", "course", "course_title", "saved_at"]
 
-    def validate(self, data):
-        course_id = data.get("course")
-
-        
-        if isinstance(course_id, str):
-            try:
-                data["course"] = int(course_id)
-            except ValueError:
-                raise serializers.ValidationError({"course": "Invalid course id"})
-
-        return data
+    def create(self, validated_data):
+        course_id = validated_data.pop("course")
+        return SavedCourse.objects.create(
+            user=self.context["request"].user,
+            course_id=course_id,
+            **validated_data
+        )
