@@ -515,19 +515,42 @@ class SocialLinksSerializer(serializers.ModelSerializer):
 #---------------- Saved Courses and Jobs ----------------
 
 
+class SavedJobSerializer(serializers.ModelSerializer):
+    job_title = serializers.CharField(source="job.title", read_only=True)
+
+    class Meta:
+        model = SavedJob
+        fields = ["id", "job", "job_title", "saved_at"]
+
+    def validate(self, data):
+        job_id = data.get("job")
+
+       
+        if isinstance(job_id, str):
+            try:
+                data["job"] = int(job_id)
+            except ValueError:
+                raise serializers.ValidationError({"job": "Invalid job id"})
+
+        return data
+
+
+
 class SavedCourseSerializer(serializers.ModelSerializer):
-    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all())
     course_title = serializers.CharField(source="course.title", read_only=True)
 
     class Meta:
         model = SavedCourse
         fields = ["id", "course", "course_title", "saved_at"]
 
+    def validate(self, data):
+        course_id = data.get("course")
 
-class SavedJobSerializer(serializers.ModelSerializer):
-    job = serializers.PrimaryKeyRelatedField(queryset=SavedJob._meta.get_field("job").related_model.objects.all())
-    job_title = serializers.CharField(source="job.title", read_only=True)
+        
+        if isinstance(course_id, str):
+            try:
+                data["course"] = int(course_id)
+            except ValueError:
+                raise serializers.ValidationError({"course": "Invalid course id"})
 
-    class Meta:
-        model = SavedJob
-        fields = ["id", "job", "job_title", "saved_at"]
+        return data
