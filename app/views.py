@@ -1879,11 +1879,8 @@ class AcademyDetailView(APIView):
 def toggle_save_course(request, course_id):
     user = request.user
 
-    # Convert "12", '12', 12 → 12
-    try:
-        course_id = int(str(course_id).replace('"', '').replace("'", ""))
-    except:
-        return Response({"error": "Invalid course id"}, status=400)
+    # Clean string ID (remove quotes)
+    course_id = str(course_id).replace('"', '').replace("'", "")
 
     course_data = request.data
 
@@ -1891,9 +1888,6 @@ def toggle_save_course(request, course_id):
         id=course_id,
         defaults={
             "title": course_data.get("title", "Unknown Course"),
-            "description": course_data.get("description", ""),
-            "duration": course_data.get("duration", ""),
-            "price": course_data.get("price", 0),
         }
     )
 
@@ -1910,6 +1904,7 @@ def toggle_save_course(request, course_id):
 
 
 
+
 # ============================
 #   USER TOGGLE SAVE JOB
 # ============================
@@ -1918,10 +1913,7 @@ def toggle_save_course(request, course_id):
 def toggle_save_job(request, job_id):
     user = request.user
 
-    try:
-        job_id = int(str(job_id).replace('"', '').replace("'", ""))
-    except:
-        return Response({"error": "Invalid job id"}, status=400)
+    job_id = str(job_id).replace('"', '').replace("'", "")
 
     job_data = request.data
 
@@ -1948,7 +1940,6 @@ def toggle_save_job(request, job_id):
     return Response({"message": "Job saved successfully.", "saved": True})
 
 
-
 # ============================
 #   ACADEMY TOGGLE SAVE COURSE
 # ============================
@@ -1959,10 +1950,7 @@ def toggle_save_course_academy(request, course_id):
     if not academy:
         return Response({"error": "Academy not found"}, status=404)
 
-    try:
-        course_id = int(str(course_id).replace('"', '').replace("'", ""))
-    except:
-        return Response({"error": "Invalid course id"}, status=400)
+    course_id = str(course_id).replace('"', '').replace("'", "")
 
     course_data = request.data
 
@@ -1970,9 +1958,6 @@ def toggle_save_course_academy(request, course_id):
         id=course_id,
         defaults={
             "title": course_data.get("title", "Unknown Course"),
-            "description": course_data.get("description", ""),
-            "duration": course_data.get("duration", ""),
-            "price": course_data.get("price", 0),
         }
     )
 
@@ -1983,9 +1968,10 @@ def toggle_save_course_academy(request, course_id):
 
     if not created:
         saved.delete()
-        return Response({"message": "Course removed from academy saved list.", "saved": False})
+        return Response({"message": "Course removed from academy list.", "saved": False})
 
-    return Response({"message": "Course saved to academy profile.", "saved": True})
+    return Response({"message": "Course saved to academy.", "saved": True})
+
 
 # ============================
 #   ACADEMY TOGGLE SAVE JOB
@@ -1997,10 +1983,7 @@ def toggle_save_job_academy(request, job_id):
     if not academy:
         return Response({"error": "Academy not found"}, status=404)
 
-    try:
-        job_id = int(str(job_id).replace('"', '').replace("'", ""))
-    except:
-        return Response({"error": "Invalid job id"}, status=400)
+    job_id = str(job_id).replace('"', '').replace("'", "")
 
     job_data = request.data
 
@@ -2022,9 +2005,10 @@ def toggle_save_job_academy(request, job_id):
 
     if not created:
         saved.delete()
-        return Response({"message": "Job removed from academy saved list.", "saved": False})
+        return Response({"message": "Job removed from academy list.", "saved": False})
 
     return Response({"message": "Job saved to academy profile.", "saved": True})
+
 
 
 

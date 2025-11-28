@@ -58,6 +58,7 @@ class UserSkill(models.Model):
     points = models.IntegerField(default=1)
 
 class Job(models.Model):
+    id = models.CharField(max_length=255, primary_key=True)
     title = models.CharField(max_length=200)
     description = models.TextField(null=False, default="No description")
     salary_min = models.IntegerField(null=False, default=0)
@@ -68,6 +69,7 @@ class Job(models.Model):
 
 
 class Course(models.Model):
+    id = models.CharField(max_length=255, primary_key=True)
     academy = models.ForeignKey(
         'Academy', on_delete=models.CASCADE, related_name="courses", null=True, blank=True
     )
