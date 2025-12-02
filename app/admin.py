@@ -14,6 +14,8 @@ admin.site.register(TemporaryAcademy)
 
 
 
+
+
 from django.contrib import admin
 from .models import Job, Course
 
