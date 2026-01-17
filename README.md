@@ -10,44 +10,45 @@ applications such as React.
 
 BRENE01/
 │
-├── .venv/
-├── app/
-│   ├── __pycache__/
-│   ├── management/
-│   ├── migrations/
-│   ├── ml/
-│   │   └── model.pkl
-│   ├── __init__.py
-│   ├── admin.py
-│   ├── apps.py
-│   ├── models.py
-│   ├── serializers.py
-│   ├── tests.py
-│   ├── urls.py
-│   └── views.py
+├── .venv/                     # Python virtual environment
+├── app/                       # Main Django app
+│   ├── __pycache__/           # Python cache files
+│   ├── management/            # Custom Django management commands
+│   ├── migrations/            # Database migration files
+│   ├── ml/                    # Machine Learning models and scripts
+│   │   └── model.pkl          # Serialized ML model
+│   ├── __init__.py            # Marks this directory as a Python package
+│   ├── admin.py               # Django admin configurations
+│   ├── apps.py                # App configuration
+│   ├── models.py              # Database models
+│   ├── serializers.py         # DRF serializers
+│   ├── tests.py               # Unit tests
+│   ├── urls.py                # App-level URL routing
+│   └── views.py               # API / view logic
 │
-├── media/
-│   └── profile_pics/
+├── media/                     # Uploaded media files
+│   └── profile_pics/          # User profile pictures
 │
-├── mysite/
-│   ├── __pycache__/
-│   ├── __init__.py
-│   ├── asgi.py
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
+├── mysite/                    # Django project settings
+│   ├── __pycache__/           # Python cache files
+│   ├── __init__.py            # Marks this directory as a Python package
+│   ├── asgi.py                # ASGI config for async servers
+│   ├── settings.py            # Django settings
+│   ├── urls.py                # Project-level URL routing
+│   └── wsgi.py                # WSGI config for deployment
 │
-├── profile_pics/
-├── staticfiles/
-│   ├── admin/
-│   └── rest_framework/
+├── profile_pics/              # Possibly another directory for profile pictures
+├── staticfiles/               # Collected static files
+│   ├── admin/                 # Django admin static files
+│   └── rest_framework/        # DRF static files
 │
-├── .env
-├── .gitignore
-├── db.sqlite3
-├── manage.py
-├── Procfile
-└── requirements.txt
+├── .env                       # Environment variables
+├── .gitignore                 # Git ignore rules
+├── db.sqlite3                 # SQLite database
+├── manage.py                  # Django management script
+├── Procfile                   # Deployment config (Heroku etc.)
+└── requirements.txt           # Python dependencies
+
 
 
 
