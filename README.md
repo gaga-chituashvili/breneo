@@ -9,6 +9,7 @@ applications such as React.
 ## 📁 Project Structure
 
 BRENE01/
+│
 ├── .venv/
 ├── app/
 │   ├── __pycache__/
@@ -24,8 +25,10 @@ BRENE01/
 │   ├── tests.py
 │   ├── urls.py
 │   └── views.py
+│
 ├── media/
 │   └── profile_pics/
+│
 ├── mysite/
 │   ├── __pycache__/
 │   ├── __init__.py
@@ -33,16 +36,18 @@ BRENE01/
 │   ├── settings.py
 │   ├── urls.py
 │   └── wsgi.py
+│
 ├── profile_pics/
 ├── staticfiles/
 │   ├── admin/
 │   └── rest_framework/
+│
 ├── .env
 ├── .gitignore
 ├── db.sqlite3
 ├── manage.py
 ├── Procfile
-├── requirements.txt
+└── requirements.txt
 
 
 
