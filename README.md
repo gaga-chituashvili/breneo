@@ -6,48 +6,50 @@ The backend is designed to be scalable and easily integrated with frontend
 applications such as React.
 
 
+
 ## 📁 Project Structure
 
+```text
 BRENE01/
-│
 ├── .venv/                     # Python virtual environment
-├── app/                       # Main Django app
-│   ├── __pycache__/           # Python cache files
-│   ├── management/            # Custom Django management commands
-│   ├── migrations/            # Database migration files
-│   ├── ml/                    # Machine Learning models and scripts
-│   │   └── model.pkl          # Serialized ML model
-│   ├── __init__.py            # Marks this directory as a Python package
-│   ├── admin.py               # Django admin configurations
-│   ├── apps.py                # App configuration
-│   ├── models.py              # Database models
-│   ├── serializers.py         # DRF serializers
-│   ├── tests.py               # Unit tests
-│   ├── urls.py                # App-level URL routing
-│   └── views.py               # API / view logic
+├── app/                       # Main Django application
+│   ├── __pycache__/            # Python cache files
+│   ├── management/             # Custom Django management commands
+│   ├── migrations/             # Database migrations
+│   ├── ml/                     # Machine Learning models & scripts
+│   │   └── model.pkl           # Serialized ML model
+│   ├── __init__.py             # Python package marker
+│   ├── admin.py                # Django admin configuration
+│   ├── apps.py                 # App configuration
+│   ├── models.py               # Database models
+│   ├── serializers.py          # DRF serializers
+│   ├── tests.py                # Unit tests
+│   ├── urls.py                 # App-level routing
+│   └── views.py                # API / business logic
 │
-├── media/                     # Uploaded media files
-│   └── profile_pics/          # User profile pictures
+├── media/                      # Uploaded media files
+│   └── profile_pics/           # User profile pictures
 │
-├── mysite/                    # Django project settings
-│   ├── __pycache__/           # Python cache files
-│   ├── __init__.py            # Marks this directory as a Python package
-│   ├── asgi.py                # ASGI config for async servers
-│   ├── settings.py            # Django settings
-│   ├── urls.py                # Project-level URL routing
-│   └── wsgi.py                # WSGI config for deployment
+├── mysite/                     # Django project configuration
+│   ├── __pycache__/            # Python cache files
+│   ├── __init__.py             # Python package marker
+│   ├── asgi.py                 # ASGI configuration
+│   ├── settings.py             # Django settings
+│   ├── urls.py                 # Project-level routing
+│   └── wsgi.py                 # WSGI configuration
 │
-├── profile_pics/              # Possibly another directory for profile pictures
-├── staticfiles/               # Collected static files
-│   ├── admin/                 # Django admin static files
-│   └── rest_framework/        # DRF static files
+├── staticfiles/                # Collected static files
+│   ├── admin/                  # Django admin static assets
+│   └── rest_framework/         # DRF static assets
 │
-├── .env                       # Environment variables
-├── .gitignore                 # Git ignore rules
-├── db.sqlite3                 # SQLite database
-├── manage.py                  # Django management script
-├── Procfile                   # Deployment config (Heroku etc.)
-└── requirements.txt           # Python dependencies
+├── .env                        # Environment variables
+├── .gitignore                  # Git ignore rules
+├── db.sqlite3                  # SQLite database
+├── manage.py                   # Django management script
+├── Procfile                    # Deployment configuration
+└── requirements.txt            # Python dependencies
+```
+
 
 
 
