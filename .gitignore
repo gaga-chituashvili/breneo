@@ -1,1 +1,9 @@
 *
+node_modules
+build
+dist
+staticfiles
+media
+uploads
+.env
+.venv
